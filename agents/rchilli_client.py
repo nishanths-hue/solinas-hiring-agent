@@ -49,6 +49,15 @@ def parse_resume_file(file_bytes: bytes, filename: str) -> dict:
         "version": RCHILLI_VERSION,
     }
 
+    subuser_id = os.environ.get("RCHILLI_SUBUSER_ID")
+    if subuser_id:
+        payload["subuserid"] = subuser_id
+    # If RCHILLI_SUBUSER_ID isn't set, we still send the request without it —
+    # some RChilli accounts don't require it. If this account does (confirmed
+    # Aug 26, 2026: it does — RChilli returned errorcode 1002 "SubUserId is
+    # required" without it), the request will fail clearly rather than silently,
+    # same as the missing-userkey case above.
+
     resp = requests.post(RCHILLI_URL, json=payload, timeout=30)
     if resp.status_code != 200:
         raise RChilliError(f"RChilli returned HTTP {resp.status_code}: {resp.text[:500]}")
