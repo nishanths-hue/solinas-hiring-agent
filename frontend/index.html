@@ -257,6 +257,14 @@
         <h3>Roles aging past priority threshold</h3>
         <div id="aging-content">Loading…</div>
       </div>
+      <div class="panel">
+        <h3>Ownership queue — pending actions by role</h3>
+        <div id="ownership-content">Loading…</div>
+      </div>
+      <div class="panel">
+        <h3>Priority queue — not FIFO, highest score first</h3>
+        <div id="priority-queue-content">Loading…</div>
+      </div>
     </div>
 
     <!-- ROLES -->
@@ -279,6 +287,12 @@
       <div class="panel">
         <label>Filter by role</label>
         <select id="candidate-role-filter" onchange="loadCandidatesForRole()"></select>
+        <label style="margin-top:12px">Search (skills, resume text, tags, source)</label>
+        <div style="display:flex;gap:8px">
+          <input id="candidate-search-input" placeholder='e.g. "PLC SCADA"' onkeydown="if(event.key==='Enter') runCandidateSearch()">
+          <button onclick="runCandidateSearch()">Search</button>
+          <button onclick="clearCandidateSearch()">Clear</button>
+        </div>
       </div>
       <div class="panel" style="overflow-x:auto">
         <table id="candidates-table"><thead><tr>
@@ -428,6 +442,33 @@ async function loadDashboard() {
         </div>`).join('');
     }
   } catch (e) { document.getElementById('aging-content').textContent = 'Could not load aging roles.'; }
+
+  try {
+    const ownership = await api('/dashboard/ownership-queue');
+    const labels = { recruitment: 'Recruitment', hiring_manager: 'Hiring Manager', interviewer: 'Interviewer', leadership: 'Leadership' };
+    document.getElementById('ownership-content').innerHTML = Object.entries(ownership).map(([role, count]) => `
+      <div class="aging-row">
+        <span>${labels[role] || role}</span>
+        <span class="mono" style="color:${count > 0 ? 'var(--amber)' : 'var(--text-dim)'}">${count} pending</span>
+      </div>`).join('');
+  } catch (e) { document.getElementById('ownership-content').textContent = 'Could not load ownership queue.'; }
+
+  try {
+    const queue = await api('/candidates/queue/priority');
+    if (queue.length === 0) {
+      document.getElementById('priority-queue-content').innerHTML = '<span style="color:var(--text-dim)">No active candidates.</span>';
+    } else {
+      document.getElementById('priority-queue-content').innerHTML = queue.slice(0, 10).map((q, i) => `
+        <div class="aging-row">
+          <span class="mono" style="color:var(--text-faint);width:20px;display:inline-block">${i + 1}.</span>
+          <span style="flex:1">${q.full_name} — ${q.stage}
+            ${q.priority_override !== 'Normal' ? `<span class="priority-tag priority-${q.priority_override === 'Critical' ? 'Critical' : 'High'}">${q.priority_override}</span>` : ''}
+            ${q.needs_founder_review ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber)">Founder review</span>' : ''}
+          </span>
+          <span class="mono">${q.priority_score}</span>
+        </div>`).join('');
+    }
+  } catch (e) { document.getElementById('priority-queue-content').textContent = 'Could not load priority queue.'; }
 }
 
 // ---------- roles ----------
@@ -541,6 +582,33 @@ async function loadRoleFilterOptions() {
     sel.innerHTML = roles.map(r => `<option value="${r.id}">${r.role_title}</option>`).join('');
     if (roles.length) loadCandidatesForRole();
   } catch (e) { sel.innerHTML = `<option>Could not load roles</option>`; }
+}
+
+async function runCandidateSearch() {
+  const q = document.getElementById('candidate-search-input').value.trim();
+  const tbody = document.querySelector('#candidates-table tbody');
+  if (!q) return;
+  tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Searching…</td></tr>`;
+  try {
+    // Uses /candidates/search/query, not /candidates/search — the latter
+    // collides with the existing GET /candidates/{candidate_id} route.
+    const results = await api(`/candidates/search/query?q=${encodeURIComponent(q)}`);
+    if (results.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">No matches for "${q}".</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = results.map(r => `
+      <tr class="clickable" onclick="openCandidateDrawer(${r.candidate_id})">
+        <td>${r.full_name}</td>
+        <td>${r.stage}</td>
+        <td class="mono" colspan="2">match score: ${r.match_score} · source: ${r.candidate_source || '—'}</td>
+      </tr>`).join('');
+  } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
+}
+
+function clearCandidateSearch() {
+  document.getElementById('candidate-search-input').value = '';
+  loadCandidatesForRole();
 }
 
 async function loadCandidatesForRole() {
@@ -663,6 +731,13 @@ async function openCandidateDrawer(candidateId) {
   const content = document.getElementById('drawer-content');
   const canSeeRefs = ['leadership', 'recruitment'].includes(ROLE);
   const canUploadResume = ['leadership', 'recruitment'].includes(ROLE);
+
+  let candidateStage = '…';
+  try {
+    const c = await api(`/candidates/${candidateId}`);
+    candidateStage = c.stage;
+  } catch {}
+
   content.innerHTML = `
     <h3>Candidate #${candidateId}</h3>
     ${canUploadResume ? `
@@ -672,6 +747,18 @@ async function openCandidateDrawer(candidateId) {
         <div id="resume-upload-msg" class="msg"></div>
       </div>
     ` : ''}
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+      <label style="margin:0 0 4px">Stage: <span class="mono" style="color:var(--amber)">${candidateStage}</span></label>
+      <select id="stage-target">
+        ${STAGE_ORDER.map(s => `<option value="${s}" ${s === candidateStage ? 'selected' : ''}>${s}</option>`).join('')}
+        <option value="Rejected">Rejected</option>
+        <option value="Hold for Future">Hold for Future</option>
+        <option value="On Hold">On Hold</option>
+      </select>
+      <div id="stage-extra-fields"></div>
+      <div class="form-actions"><button onclick="submitStageTransition(${candidateId})">Move candidate</button></div>
+      <div id="stage-msg" class="msg"></div>
+    </div>
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="interviews" onclick="switchTab('interviews')">Interviews</button>
       <button class="tab-btn" data-tab="assignments" onclick="switchTab('assignments')">Assignments</button>
@@ -681,8 +768,72 @@ async function openCandidateDrawer(candidateId) {
     <div id="tab-assignments" class="tab-panel"></div>
     ${canSeeRefs ? `<div id="tab-references" class="tab-panel"></div>` : ''}
   `;
+  document.getElementById('stage-target').addEventListener('change', updateStageExtraFields);
   openDrawer();
   loadInterviewsTab(candidateId);
+}
+
+// Mirrors app/routers/candidate_lifecycle.py STAGE_ORDER exactly — kept in
+// sync manually since the frontend has no way to fetch this list from the
+// API today; if the backend order changes, this needs updating too.
+const STAGE_ORDER = [
+  "Applied", "Resume Review", "Shortlisted", "Interview Process",
+  "Assignment Sent", "Assignment Submitted", "Final Evaluation",
+  "Reference Check", "Offer Discussion", "Offer Released",
+  "Offer Accepted", "Joined",
+];
+
+const REJECTION_REASONS = [
+  "Technical Gap", "Communication Gap", "Compensation Mismatch",
+  "Stability Concern", "Cultural Fit", "Leadership Gap",
+  "Assignment Weak", "Candidate Withdrew",
+];
+
+function updateStageExtraFields() {
+  const target = document.getElementById('stage-target').value;
+  const container = document.getElementById('stage-extra-fields');
+  if (target === 'Rejected') {
+    container.innerHTML = `
+      <label>Rejection reason (required)</label>
+      <select id="stage-rejection-reason">
+        <option value="">Select a reason…</option>
+        ${REJECTION_REASONS.map(r => `<option value="${r}">${r}</option>`).join('')}
+      </select>
+    `;
+  } else {
+    // A skip reason MIGHT be required depending on how far this jumps — the
+    // backend is the source of truth on whether it's actually needed, this
+    // field is just offered proactively so the person isn't surprised by a
+    // validation error with nowhere to put the answer.
+    container.innerHTML = `
+      <label>Skip reason (only required if this skips stages)</label>
+      <input id="stage-skip-reason" placeholder="e.g. Founder wants to accelerate">
+    `;
+  }
+}
+
+async function submitStageTransition(candidateId) {
+  const msg = document.getElementById('stage-msg');
+  const toStage = document.getElementById('stage-target').value;
+  const payload = { to_stage: toStage };
+
+  const rejectionEl = document.getElementById('stage-rejection-reason');
+  const skipEl = document.getElementById('stage-skip-reason');
+  if (rejectionEl) payload.rejection_reason = rejectionEl.value || null;
+  if (skipEl) payload.skip_reason = skipEl.value || null;
+
+  try {
+    msg.className = 'msg'; msg.textContent = 'Moving…';
+    const result = await api(`/candidates/${candidateId}/transition`, { method: 'POST', body: JSON.stringify(payload) });
+    msg.className = 'msg ok';
+    msg.textContent = `Moved: ${result.from_stage} → ${result.to_stage}${result.was_skip ? ' (skip logged)' : ''}`;
+    loadCandidatesForRole();
+  } catch (e) {
+    // Backend errors here are specific and real (wrong owner role, missing
+    // rejection reason, missing skip reason) — show them exactly, don't
+    // paraphrase into something vaguer.
+    msg.className = 'msg err'; msg.textContent = e.message;
+  }
 }
 
 function switchTab(name) {
