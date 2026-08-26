@@ -101,3 +101,51 @@ def update_compensation(
     role.compensation_range = compensation_range
     db.commit()
     return {"role_id": role_id, "compensation_range": compensation_range}
+
+
+# Section 7 — "Role Stages" and "Role Ownership" tables, exactly as specified
+ROLE_STAGE_ORDER = ["Draft Request", "Under Review", "Approved", "Live Hiring", "Closed"]
+ROLE_STAGE_TRANSITION_OWNERS = {
+    ("Draft Request", "Under Review"): {"hiring_manager"},
+    ("Under Review", "Approved"): {"leadership", "recruitment"},
+    ("Approved", "Live Hiring"): {"recruitment"},
+    ("Live Hiring", "Closed"): {"recruitment", "hiring_manager"},
+}
+ROLE_DEFAULT_ALLOWED_ROLES = {"leadership", "recruitment", "hiring_manager"}
+
+
+class RoleTransition(BaseModel):
+    to_stage: str
+
+
+@router.post("/{role_id}/transition")
+def transition_role(
+    role_id: int,
+    payload: RoleTransition,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Section 7's role stage-movement endpoint, enforcing the document's
+    exact transition-ownership table. 'On Hold' isn't in the doc's Role
+    Stages table for transitions but is a valid stage value elsewhere in
+    the schema — reachable by the default allowed roles, no named owner."""
+    valid_stages = set(ROLE_STAGE_ORDER) | {"On Hold"}
+    if payload.to_stage not in valid_stages:
+        raise HTTPException(422, f"'{payload.to_stage}' is not a valid role stage. Valid: {sorted(valid_stages)}")
+
+    role = db.query(Role).get(role_id)
+    if not role:
+        raise HTTPException(404, "Role not found")
+
+    from_stage = role.stage
+    owners = ROLE_STAGE_TRANSITION_OWNERS.get((from_stage, payload.to_stage), ROLE_DEFAULT_ALLOWED_ROLES)
+    if user.role not in owners:
+        raise HTTPException(
+            403,
+            f"Role '{user.role}' cannot move this role from '{from_stage}' to '{payload.to_stage}'. "
+            f"Requires one of: {sorted(owners)}",
+        )
+
+    role.stage = payload.to_stage
+    db.commit()
+    return {"role_id": role_id, "from_stage": from_stage, "to_stage": payload.to_stage}

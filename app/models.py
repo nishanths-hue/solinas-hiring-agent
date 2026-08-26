@@ -83,6 +83,8 @@ class Candidate(Base):
     status = Column(String, default="Active")
     priority_override = Column(String, default="Normal")
     needs_founder_review = Column(Boolean, default=False)
+    rejection_reason = Column(String)   # Section 23 — one of the enumerated Rejection Reasons categories
+    withdrawal_reason = Column(String)  # Section 23 — one of the enumerated Withdrawal Reasons categories
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -223,6 +225,27 @@ class ReferenceCheck(Base):
     ai_summary = Column(Text)
     completed_at = Column(DateTime, default=datetime.utcnow)
     logged_by = Column(String)
+
+
+class JoiningRiskTracker(Base):
+    """
+    Section 26 — created automatically once a candidate reaches Offer
+    Accepted (doc: "After: Offer Accepted, the system should create joining
+    tracker, assign recruiter owner"). Fields updated manually by
+    recruitment — this is observation logging, not an AI agent; the doc
+    doesn't call for AI involvement here at all.
+    """
+    __tablename__ = "joining_risk_trackers"
+    id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"), unique=True)
+    recruiter_owner = Column(String)
+    joining_confidence = Column(String)
+    pending_documents = Column(Text)
+    joining_confirmed = Column(Boolean, default=False)
+    risk_level = Column(String, default="Low Risk")  # Low Risk | Moderate Risk | High Risk
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
 
 
 class SlaClock(Base):
