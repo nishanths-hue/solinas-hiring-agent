@@ -248,6 +248,63 @@ class JoiningRiskTracker(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
+class RoleRequirementHistory(Base):
+    """Section 9 — 'lightweight tracking for important edits.' One row per
+    field per edit, not a full-document snapshot — matches the doc's own
+    Updated By / Updated On / Previous Value / New Value shape exactly."""
+    __tablename__ = "role_requirement_history"
+    id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id"))
+    field_name = Column(String, nullable=False)
+    previous_value = Column(Text)
+    new_value = Column(Text)
+    updated_by = Column(String, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CompensationBenchmark(Base):
+    """Section 11 — 'should initially remain lightweight and editable.'
+    Restricted to recruitment/leadership per Section 10's explicit listing
+    of 'Internal Compensation Benchmarking' as a restricted field."""
+    __tablename__ = "compensation_benchmarks"
+    id = Column(Integer, primary_key=True)
+    role_category = Column(String, nullable=False)
+    experience_range = Column(String)
+    typical_market_band_min = Column(Float)
+    typical_market_band_max = Column(Float)
+    currency = Column(String, default="INR")
+    last_updated_by = Column(String)
+    last_updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HiringTemplate(Base):
+    """Section 13 — fixed set of 4 template types per the doc's own table;
+    'only role-specific variables should change automatically' means this
+    is boilerplate content with placeholders, not a full generated JD."""
+    __tablename__ = "hiring_templates"
+    id = Column(Integer, primary_key=True)
+    template_type = Column(String, nullable=False)  # Technical Hiring | Site Engineering | Sales Hiring | Urgent Hiring
+    template_name = Column(String, nullable=False)
+    template_content = Column(Text, nullable=False)
+    created_by = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RolePosting(Base):
+    """Section 14 — 'Generated hiring assets should not auto-publish.' No
+    agent in this system ever creates or advances a row in this table —
+    every status change here is a human action through the API, by design."""
+    __tablename__ = "role_postings"
+    id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id"))
+    channel = Column(String, nullable=False)  # e.g. "LinkedIn", "Naukri", "Employee Referral"
+    status = Column(String, default="Generated")  # Generated|Under Review|Approved|Posted|Paused|Closed
+    posted_at = Column(DateTime)
+    updated_by = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 class SlaClock(Base):
     __tablename__ = "sla_clocks"
     id = Column(Integer, primary_key=True)
