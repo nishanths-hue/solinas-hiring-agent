@@ -131,6 +131,11 @@ class Interview(Base):
     __tablename__ = "interviews"
     id = Column(Integer, primary_key=True)
     candidate_id = Column(Integer, ForeignKey("candidates.id"))
+    interviewer_user_id = Column(Integer, ForeignKey("users.id"))  # who actually submitted this — enforces
+                                                                     # Section 38 "interviewer can edit only their
+                                                                     # own feedback" at creation time, since this is
+                                                                     # always set from the authenticated user, never
+                                                                     # accepted as client input
     interviewer_name = Column(String)
     evaluation_area = Column(String)
     coverage_level = Column(String)

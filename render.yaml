@@ -2,7 +2,7 @@ services:
   - type: web
     name: solinas-hiring-agent
     env: docker
-    plan: free
+    plan: starter
     healthCheckPath: /health
     envVars:
       - key: JWT_SECRET_KEY
@@ -16,6 +16,6 @@ services:
 
 databases:
   - name: solinas-hiring-db
-    plan: free
+    plan: starter
     databaseName: hiring
     user: hiring_app
