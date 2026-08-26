@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, roles, candidates, dashboard, interviews, assignments, reference_checks, assignment_repository, candidate_lifecycle, role_requirements, compensation_benchmarks, templates_and_postings, recruiter_tools, duplicates_and_sources
+from app.routers import auth, roles, candidates, dashboard, interviews, assignments, reference_checks, assignment_repository, candidate_lifecycle, role_requirements, compensation_benchmarks, templates_and_postings, recruiter_tools, duplicates_and_sources, candidate_views
 
 app = FastAPI(
     title="Solinas Hiring Management System",
     description="AI-assisted hiring operations API. AI agents assist and score; "
                 "humans decide and advance stages (Section 2 of the operating design doc).",
-    version="0.8.0",
+    version="0.9.0",
 )
 
 app.include_router(auth.router)
@@ -23,6 +23,7 @@ app.include_router(compensation_benchmarks.router)
 app.include_router(templates_and_postings.router)
 app.include_router(recruiter_tools.router)
 app.include_router(duplicates_and_sources.router)
+app.include_router(candidate_views.router)
 
 # Frontend served at /app — kept off the root path so /docs, /health, and every
 # existing API route are completely unaffected. html=True serves index.html
