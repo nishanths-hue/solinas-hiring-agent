@@ -731,6 +731,7 @@ async function openCandidateDrawer(candidateId) {
   const content = document.getElementById('drawer-content');
   const canSeeRefs = ['leadership', 'recruitment'].includes(ROLE);
   const canUploadResume = ['leadership', 'recruitment'].includes(ROLE);
+  const canSeeNotes = ['leadership', 'recruitment', 'hiring_manager'].includes(ROLE);
 
   let candidateStage = '…';
   try {
@@ -748,7 +749,7 @@ async function openCandidateDrawer(candidateId) {
       </div>
     ` : ''}
     <div style="padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
-      <label style="margin:0 0 4px">Stage: <span class="mono" style="color:var(--amber)">${candidateStage}</span></label>
+      <label style="margin:0 0 4px">Stage: <span id="stage-current-label" class="mono" style="color:var(--amber)">${candidateStage}</span></label>
       <select id="stage-target">
         ${STAGE_ORDER.map(s => `<option value="${s}" ${s === candidateStage ? 'selected' : ''}>${s}</option>`).join('')}
         <option value="Rejected">Rejected</option>
@@ -760,17 +761,139 @@ async function openCandidateDrawer(candidateId) {
       <div id="stage-msg" class="msg"></div>
     </div>
     <div class="tab-bar">
-      <button class="tab-btn active" data-tab="interviews" onclick="switchTab('interviews')">Interviews</button>
+      <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" data-tab="interviews" onclick="switchTab('interviews')">Interviews</button>
       <button class="tab-btn" data-tab="assignments" onclick="switchTab('assignments')">Assignments</button>
       ${canSeeRefs ? `<button class="tab-btn" data-tab="references" onclick="switchTab('references')">References</button>` : ''}
+      ${canSeeNotes ? `<button class="tab-btn" data-tab="notes" onclick="switchTab('notes')">Notes & Tags</button>` : ''}
     </div>
-    <div id="tab-interviews" class="tab-panel active"></div>
+    <div id="tab-overview" class="tab-panel active"></div>
+    <div id="tab-interviews" class="tab-panel"></div>
     <div id="tab-assignments" class="tab-panel"></div>
     ${canSeeRefs ? `<div id="tab-references" class="tab-panel"></div>` : ''}
+    ${canSeeNotes ? `<div id="tab-notes" class="tab-panel"></div>` : ''}
   `;
   document.getElementById('stage-target').addEventListener('change', updateStageExtraFields);
   openDrawer();
-  loadInterviewsTab(candidateId);
+  loadOverviewTab(candidateId);
+}
+
+async function loadOverviewTab(candidateId) {
+  const el = document.getElementById('tab-overview');
+  el.innerHTML = 'Loading…';
+  try {
+    const d = await api(`/candidates/${candidateId}/detail-view`);
+    let html = `<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">${d.applied_role || 'No role'} · ${d.status}</div>`;
+
+    if (d.rejection_reason) {
+      html += `<div class="qa-block" style="border-color:var(--red)"><strong style="color:var(--red)">Rejected:</strong> ${d.rejection_reason}</div>`;
+    }
+    if (d.withdrawal_reason) {
+      html += `<div class="qa-block"><strong>Withdrew:</strong> ${d.withdrawal_reason}</div>`;
+    }
+    if (d.tags && d.tags.length) {
+      html += `<div style="margin:10px 0">${d.tags.map(t => `<span class="priority-tag priority-High" style="margin-right:6px">${t}</span>`).join('')}</div>`;
+    }
+    if (d.pending_concerns && d.pending_concerns.length) {
+      html += `<h3 style="margin-top:16px">Pending concerns</h3><ul>${d.pending_concerns.map(c => `<li style="font-size:13px;margin-bottom:4px">${c}</li>`).join('')}</ul>`;
+    }
+    if (d.competency_coverage_well_covered && d.competency_coverage_well_covered.length) {
+      html += `<h3 style="margin-top:16px">Well covered</h3><div style="font-size:13px;color:var(--green)">${d.competency_coverage_well_covered.join(', ')}</div>`;
+    }
+
+    html += `<h3 style="margin-top:16px">Timeline</h3>`;
+    html += d.candidate_timeline.map(t => `
+      <div style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="mono" style="color:var(--text-faint)">${new Date(t.occurred_at).toLocaleString()}</span><br>
+        ${t.activity}${t.actor ? ` <span style="color:var(--text-dim)">— ${t.actor}</span>` : ''}
+      </div>`).join('') || '<p style="color:var(--text-dim)">No activity logged yet.</p>';
+
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
+}
+
+async function loadNotesTab(candidateId) {
+  const el = document.getElementById('tab-notes');
+  const canWriteNotes = ROLE === 'recruitment';
+  const canManageTags = ['leadership', 'recruitment'].includes(ROLE);
+  el.innerHTML = 'Loading…';
+  try {
+    const [notes, tags] = await Promise.all([
+      api(`/candidates/${candidateId}/recruiter-notes`),
+      api(`/candidates/${candidateId}/tags`),
+    ]);
+
+    let html = `<h3>Tags</h3>`;
+    html += `<div style="margin-bottom:10px">${tags.map(t => `
+      <span class="priority-tag priority-High" style="margin-right:6px;margin-bottom:6px;display:inline-block">
+        ${t.tag} ${canManageTags ? `<a href="#" onclick="removeTag(${candidateId},${t.id});return false" style="margin-left:4px;color:var(--red)">✕</a>` : ''}
+      </span>`).join('') || '<span style="color:var(--text-dim);font-size:13px">No tags yet.</span>'}</div>`;
+
+    if (canManageTags) {
+      html += `
+        <select id="new-tag-select">${RECRUITER_TAGS.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+        <button onclick="addTag(${candidateId})">Add tag</button>
+        <div id="tag-msg" class="msg"></div>
+      `;
+    }
+
+    html += `<h3 style="margin-top:20px">Recruiter notes</h3>`;
+    html += notes.map(n => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <strong>${n.recruiter_name || 'Recruiter'}</strong> — ${n.recruiter_recommendation} (${n.status})<br>
+        ${n.recruiter_summary}
+        ${n.key_concerns ? `<div style="color:var(--red);margin-top:4px">Concerns: ${n.key_concerns}</div>` : ''}
+      </div>`).join('') || '<p style="color:var(--text-dim)">No recruiter notes yet.</p>';
+
+    if (canWriteNotes) {
+      html += `
+        <h3 style="margin-top:16px">Add a note</h3>
+        <label>Summary</label><textarea id="note-summary" rows="2"></textarea>
+        <label>Key concerns (optional)</label><textarea id="note-concerns" rows="2"></textarea>
+        <label>Recommendation</label>
+        <select id="note-rec"><option>Proceed</option><option>Hold</option><option>Reject</option></select>
+        <div class="form-actions"><button class="primary" onclick="submitNote(${candidateId})">Save note</button></div>
+        <div id="note-msg" class="msg"></div>
+      `;
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
+}
+
+const RECRUITER_TAGS = [
+  "Fast Track", "Strong Referral", "Compensation Risk", "Communication Concern",
+  "Leadership Potential", "Hold for Future", "Founder Review Recommended", "High Joining Risk",
+];
+
+async function addTag(candidateId) {
+  const msg = document.getElementById('tag-msg');
+  const tag = document.getElementById('new-tag-select').value;
+  try {
+    await api(`/candidates/${candidateId}/tags`, { method: 'POST', body: JSON.stringify({ tag }) });
+    loadNotesTab(candidateId);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function removeTag(candidateId, tagId) {
+  try {
+    await api(`/candidates/${candidateId}/tags/${tagId}`, { method: 'DELETE' });
+    loadNotesTab(candidateId);
+  } catch (e) { alert(e.message); }
+}
+
+async function submitNote(candidateId) {
+  const msg = document.getElementById('note-msg');
+  try {
+    const payload = {
+      recruiter_summary: document.getElementById('note-summary').value,
+      key_concerns: document.getElementById('note-concerns').value || null,
+      recruiter_recommendation: document.getElementById('note-rec').value,
+    };
+    if (!payload.recruiter_summary.trim()) throw new Error('Summary is required.');
+    await api(`/candidates/${candidateId}/recruiter-notes`, { method: 'POST', body: JSON.stringify(payload) });
+    msg.className = 'msg ok'; msg.textContent = 'Note saved.';
+    loadNotesTab(candidateId);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
 }
 
 // Mirrors app/routers/candidate_lifecycle.py STAGE_ORDER exactly — kept in
@@ -827,6 +950,7 @@ async function submitStageTransition(candidateId) {
     const result = await api(`/candidates/${candidateId}/transition`, { method: 'POST', body: JSON.stringify(payload) });
     msg.className = 'msg ok';
     msg.textContent = `Moved: ${result.from_stage} → ${result.to_stage}${result.was_skip ? ' (skip logged)' : ''}`;
+    document.getElementById('stage-current-label').textContent = result.to_stage;
     loadCandidatesForRole();
   } catch (e) {
     // Backend errors here are specific and real (wrong owner role, missing
@@ -840,8 +964,10 @@ function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'overview') loadOverviewTab(CURRENT_CANDIDATE_ID);
   if (name === 'assignments') loadAssignmentsTab(CURRENT_CANDIDATE_ID);
   if (name === 'references') loadReferencesTab(CURRENT_CANDIDATE_ID);
+  if (name === 'notes') loadNotesTab(CURRENT_CANDIDATE_ID);
 }
 
 async function loadInterviewsTab(candidateId) {
