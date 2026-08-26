@@ -1,13 +1,16 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.models import Candidate, ActivityTimeline, ResumeScreeningResult, get_db, User
 from app.auth import get_current_user, require_roles
-from agents.resume_screening_agent import screen_candidate
+from agents.resume_screening_agent import screen_candidate, parse_resume, structured_to_text
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
+
+ALLOWED_RESUME_EXTENSIONS = {".pdf", ".doc", ".docx"}
+MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024  # 5MB — resumes are small; this is generous, not a real limit on legitimate use
 
 
 class CandidateCreate(BaseModel):
@@ -35,6 +38,58 @@ def create_candidate(
     ))
     db.commit()
     return {"id": candidate.id, "full_name": candidate.full_name, "stage": candidate.stage}
+
+
+@router.post("/{candidate_id}/resume-file")
+async def upload_resume_file(
+    candidate_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("leadership", "recruitment")),
+):
+    """
+    Section 18's resume-parsing decision (RChilli), made reachable. Parses via
+    RChilli and REPLACES candidate.resume_text with the structured result —
+    but only on success. If RChilli fails for any reason (missing key, bad
+    file, API outage), the candidate's existing resume_text is left
+    untouched and the failure is returned as an error, not silently
+    swallowed into an empty overwrite. A failed upload should never destroy
+    a working fallback.
+    """
+    candidate = db.query(Candidate).get(candidate_id)
+    if not candidate:
+        raise HTTPException(404, "Candidate not found")
+
+    ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ALLOWED_RESUME_EXTENSIONS:
+        raise HTTPException(422, f"Unsupported file type '{ext}'. Allowed: {sorted(ALLOWED_RESUME_EXTENSIONS)}")
+
+    contents = await file.read()
+    if len(contents) > MAX_RESUME_FILE_BYTES:
+        raise HTTPException(422, f"File too large ({len(contents)} bytes). Max {MAX_RESUME_FILE_BYTES} bytes.")
+    if len(contents) == 0:
+        raise HTTPException(422, "Uploaded file is empty.")
+
+    parsed = parse_resume(resume_text=candidate.resume_text, file_bytes=contents, filename=file.filename)
+
+    if parsed["parsing_status"] != "rchilli_structured":
+        # Existing resume_text is untouched — nothing destructive happened.
+        raise HTTPException(502, f"Resume parsing failed, existing resume text unchanged: {parsed['parsing_status']}")
+
+    new_text = structured_to_text(parsed)
+    candidate.resume_text = new_text
+    db.add(ActivityTimeline(
+        candidate_id=candidate_id, activity=f"Resume file uploaded and parsed via RChilli ({file.filename})",
+        actor=user.email,
+    ))
+    db.commit()
+
+    return {
+        "candidate_id": candidate_id,
+        "filename": file.filename,
+        "parsing_status": parsed["parsing_status"],
+        "resume_text_preview": new_text[:300],
+    }
 
 
 @router.post("/{candidate_id}/screen")

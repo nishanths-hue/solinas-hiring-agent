@@ -53,6 +53,34 @@ def parse_resume(resume_text: str = None, file_bytes: bytes = None, filename: st
     return {"raw_text": resume_text or "", "parsing_status": "raw_text_only"}
 
 
+def structured_to_text(parsed: dict) -> str:
+    """
+    Converts RChilli's structured parse output into a readable text blob for
+    storage in candidate.resume_text (a plain string column) and for the
+    screening prompt to consume. Keeps the structure legible rather than
+    dumping raw JSON, since a recruiter may read this directly too.
+    """
+    lines = []
+    if parsed.get("candidate_name"):
+        lines.append(f"Name: {parsed['candidate_name']}")
+    if parsed.get("total_experience_years"):
+        lines.append(f"Total experience: {parsed['total_experience_years']} years")
+    if parsed.get("current_employer"):
+        lines.append(f"Current employer: {parsed['current_employer']}")
+    if parsed.get("skills"):
+        lines.append(f"Skills: {', '.join(parsed['skills'])}")
+    if parsed.get("experience_history"):
+        lines.append("\nExperience:")
+        for e in parsed["experience_history"]:
+            lines.append(f"  - {e.get('designation', '?')} at {e.get('employer', '?')} ({e.get('duration', '?')})")
+    if parsed.get("education"):
+        lines.append("\nEducation:")
+        for ed in parsed["education"]:
+            lines.append(f"  - {ed.get('degree', '?')}, {ed.get('institution', '?')}")
+    text = "\n".join(lines)
+    return text if text.strip() else parsed.get("raw_text", "")
+
+
 def screen_candidate(resume_text: str = None, role: dict = None,
                       file_bytes: bytes = None, filename: str = None) -> dict:
     """
