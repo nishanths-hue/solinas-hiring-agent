@@ -161,6 +161,67 @@ class ActivityTimeline(Base):
     occurred_at = Column(DateTime, default=datetime.utcnow)
 
 
+class AssignmentRepository(Base):
+    """Section 21 — reusable assignment templates, not one-off per candidate."""
+    __tablename__ = "assignment_repository"
+    id = Column(Integer, primary_key=True)
+    assignment_name = Column(String, nullable=False)
+    role_category = Column(String)
+    experience_level = Column(String)
+    skills_covered = Column(JSON, default=list)
+    difficulty_level = Column(String)
+    assignment_content = Column(Text)
+    evaluation_criteria = Column(JSON, default=dict)  # {"area": weight, ...}
+    historical_usage_count = Column(Integer, default=0)
+
+
+class Assignment(Base):
+    """
+    Section 21 — scoring is human-entered per criterion; weighted_total is
+    computed deterministically (see agents/assignment_scoring.py), not by an
+    LLM. Weights match the doc's own breakdown: technical 40%, problem
+    solving 25%, clarity/structure 15%, practical thinking 10%, completeness 10%.
+    """
+    __tablename__ = "assignments"
+    id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"))
+    assignment_repository_id = Column(Integer, ForeignKey("assignment_repository.id"))
+    sent_at = Column(DateTime, default=datetime.utcnow)
+    submission_deadline = Column(DateTime)
+    submitted_at = Column(DateTime)
+    status = Column(String, default="Sent")  # Sent | Submitted | Overdue | Scored
+    technical_accuracy_score = Column(Float)
+    problem_solving_score = Column(Float)
+    clarity_structure_score = Column(Float)
+    practical_thinking_score = Column(Float)
+    completeness_score = Column(Float)
+    weighted_total = Column(Float)
+    scored_by = Column(String)
+
+
+class ReferenceCheck(Base):
+    """
+    Section 22 — restricted to leadership + recruitment (Section 10/38), same
+    as compensation. ai_summary is generated from raw call notes; risk_level
+    and rehire_eligibility are AI-SUGGESTED, always human-confirmable, never
+    auto-applied to the candidate's stage or status.
+    """
+    __tablename__ = "reference_checks"
+    id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"))
+    reference_name = Column(String)
+    reference_relationship = Column(String)
+    raw_notes = Column(Text)
+    overall_outcome = Column(String)
+    positive_signals = Column(Text)
+    concerns = Column(Text)
+    rehire_eligibility = Column(String)
+    risk_level = Column(String)  # Low | Medium | High
+    ai_summary = Column(Text)
+    completed_at = Column(DateTime, default=datetime.utcnow)
+    logged_by = Column(String)
+
+
 class SlaClock(Base):
     __tablename__ = "sla_clocks"
     id = Column(Integer, primary_key=True)

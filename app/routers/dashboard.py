@@ -72,6 +72,8 @@ def funnel(role_id: int = None, db: Session = Depends(get_db), user: User = Depe
         "Offer Accepted", "Joined",
     ]
     counts = Counter(c.stage for c in candidates)
+    # ordered so a bar chart / funnel viz on the frontend doesn't have to
+    # re-sort — dict insertion order is preserved in the JSON response
     funnel_ordered = {stage: counts[stage] for stage in stage_order if stage in counts}
 
     rejected_query = db.query(Candidate).filter(Candidate.status == "Rejected")

@@ -1,11 +1,11 @@
 from fastapi import FastAPI
-from app.routers import auth, roles, candidates, dashboard, interviews
+from app.routers import auth, roles, candidates, dashboard, interviews, assignments, reference_checks, assignment_repository
 
 app = FastAPI(
     title="Solinas Hiring Management System",
     description="AI-assisted hiring operations API. AI agents assist and score; "
                 "humans decide and advance stages (Section 2 of the operating design doc).",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 app.include_router(auth.router)
@@ -13,6 +13,9 @@ app.include_router(roles.router)
 app.include_router(candidates.router)
 app.include_router(dashboard.router)
 app.include_router(interviews.router)
+app.include_router(assignments.router)
+app.include_router(reference_checks.router)
+app.include_router(assignment_repository.router)
 
 # NOTE: schema creation/changes are now handled by Alembic (`alembic upgrade
 # head`), not by calling Base.metadata.create_all() on startup. Running both
