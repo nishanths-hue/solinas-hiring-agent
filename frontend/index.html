@@ -273,7 +273,9 @@
 
     <!-- CANDIDATES -->
     <div id="view-candidates" class="view hidden">
-      <h2>Candidates</h2>
+      <h2>Candidates
+        <button class="primary" style="float:right" id="new-candidate-btn" onclick="openNewCandidateForm()">+ New candidate</button>
+      </h2>
       <div class="panel">
         <label>Filter by role</label>
         <select id="candidate-role-filter" onchange="loadCandidatesForRole()"></select>
@@ -314,7 +316,10 @@ function decodeJWT(token) {
 async function api(path, options = {}) {
   const headers = options.headers || {};
   if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
-  if (options.body && !(options.body instanceof URLSearchParams)) {
+  // FormData needs the browser to set its own Content-Type (with a multipart
+  // boundary it generates) — setting it manually breaks the upload silently,
+  // since the boundary parameter would be missing.
+  if (options.body && !(options.body instanceof URLSearchParams) && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
   const resp = await fetch(API + path, { ...options, headers });
@@ -360,6 +365,8 @@ function initSession() {
   document.getElementById('app-view').classList.remove('hidden');
   document.getElementById('new-role-btn').style.display =
     ['leadership', 'recruitment', 'hiring_manager'].includes(ROLE) ? '' : 'none';
+  document.getElementById('new-candidate-btn').style.display =
+    ['leadership', 'recruitment'].includes(ROLE) ? '' : 'none';
   showView('dashboard');
 }
 
@@ -557,12 +564,114 @@ async function loadCandidatesForRole() {
   } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
 }
 
+async function openNewCandidateForm() {
+  const content = document.getElementById('drawer-content');
+  let roleOptions = '<option value="">Loading roles…</option>';
+  try {
+    const roles = await api('/roles');
+    roleOptions = roles.map(r => `<option value="${r.id}">${r.role_title}</option>`).join('');
+  } catch { roleOptions = '<option value="">Could not load roles</option>'; }
+
+  content.innerHTML = `
+    <h3>New candidate</h3>
+    <label>Full name</label><input id="nc-name">
+    <label>Role</label><select id="nc-role">${roleOptions}</select>
+    <label>Email (optional)</label><input id="nc-email" type="email">
+    <label>Resume</label>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">
+      Upload a file (parsed automatically) or paste text — pick one.
+    </div>
+    <input type="file" id="nc-resume-file" accept=".pdf,.doc,.docx">
+    <label style="margin-top:10px">Or paste resume text</label>
+    <textarea id="nc-resume-text" rows="4" placeholder="Paste resume text here if not uploading a file"></textarea>
+    <div class="form-actions">
+      <button class="primary" onclick="submitNewCandidate()">Create candidate</button>
+    </div>
+    <div id="nc-msg" class="msg"></div>
+  `;
+  openDrawer();
+}
+
+async function submitNewCandidate() {
+  const msg = document.getElementById('nc-msg');
+  const fileInput = document.getElementById('nc-resume-file');
+  const pastedText = document.getElementById('nc-resume-text').value;
+  const roleId = parseInt(document.getElementById('nc-role').value);
+
+  if (!document.getElementById('nc-name').value.trim()) {
+    msg.className = 'msg err'; msg.textContent = 'Full name is required.'; return;
+  }
+  if (!roleId) {
+    msg.className = 'msg err'; msg.textContent = 'Select a role.'; return;
+  }
+
+  try {
+    msg.className = 'msg'; msg.textContent = 'Creating candidate…';
+    const payload = {
+      full_name: document.getElementById('nc-name').value,
+      role_id: roleId,
+      resume_text: pastedText || '',
+      email: document.getElementById('nc-email').value || null,
+    };
+    const created = await api('/candidates', { method: 'POST', body: JSON.stringify(payload) });
+
+    // If a file was picked, upload it right after creation — this is the
+    // "create then attach resume via RChilli" flow, chained into one submit
+    // so the person filling the form doesn't have to do two separate steps.
+    if (fileInput.files.length > 0) {
+      msg.textContent = 'Candidate created — parsing resume file…';
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      try {
+        await api(`/candidates/${created.id}/resume-file`, { method: 'POST', body: formData });
+        msg.className = 'msg ok'; msg.textContent = 'Candidate created and resume parsed successfully.';
+      } catch (fileErr) {
+        // Candidate exists even though the file parse failed — say so clearly,
+        // don't make it look like the whole thing failed.
+        msg.className = 'msg err';
+        msg.textContent = `Candidate created, but resume parsing failed: ${fileErr.message}. You can retry the upload from the candidate's detail view.`;
+      }
+    } else {
+      msg.className = 'msg ok'; msg.textContent = 'Candidate created.';
+    }
+
+    loadCandidatesForRole();
+    setTimeout(closeDrawer, (pastedText || fileInput.files.length === 0) ? 700 : 1400);
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = e.message;
+  }
+}
+
+async function uploadResumeFile(candidateId, inputEl) {
+  const msg = document.getElementById('resume-upload-msg');
+  if (!inputEl.files.length) return;
+  msg.className = 'msg'; msg.textContent = 'Uploading and parsing…';
+  try {
+    const formData = new FormData();
+    formData.append('file', inputEl.files[0]);
+    const result = await api(`/candidates/${candidateId}/resume-file`, { method: 'POST', body: formData });
+    msg.className = 'msg ok';
+    msg.textContent = `Parsed successfully via RChilli. Preview: ${result.resume_text_preview.slice(0, 120)}...`;
+  } catch (e) {
+    msg.className = 'msg err';
+    msg.textContent = `Parsing failed, existing resume text unchanged: ${e.message}`;
+  }
+}
+
 async function openCandidateDrawer(candidateId) {
   CURRENT_CANDIDATE_ID = candidateId;
   const content = document.getElementById('drawer-content');
   const canSeeRefs = ['leadership', 'recruitment'].includes(ROLE);
+  const canUploadResume = ['leadership', 'recruitment'].includes(ROLE);
   content.innerHTML = `
     <h3>Candidate #${candidateId}</h3>
+    ${canUploadResume ? `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+        <label style="margin:0 0 4px">Replace resume (PDF/DOC/DOCX)</label>
+        <input type="file" accept=".pdf,.doc,.docx" onchange="uploadResumeFile(${candidateId}, this)">
+        <div id="resume-upload-msg" class="msg"></div>
+      </div>
+    ` : ''}
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="interviews" onclick="switchTab('interviews')">Interviews</button>
       <button class="tab-btn" data-tab="assignments" onclick="switchTab('assignments')">Assignments</button>

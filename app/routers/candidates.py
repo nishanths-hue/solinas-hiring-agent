@@ -16,7 +16,8 @@ MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024  # 5MB — resumes are small; this is ge
 class CandidateCreate(BaseModel):
     full_name: str
     role_id: int
-    resume_text: str
+    resume_text: Optional[str] = ""  # optional — a candidate can be created first, then get
+                                       # resume_text populated via POST .../resume-file afterward
     email: Optional[str] = None
     candidate_source: Optional[str] = "Direct Application"
 
