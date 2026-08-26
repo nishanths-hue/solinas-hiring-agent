@@ -103,6 +103,9 @@ class ResumeScreeningResult(Base):
     suggested_priority = Column(String)
     score_explanation = Column(Text)
     model_used = Column(String)
+    parsing_status = Column(String)  # "rchilli_structured" | "rchilli_failed: ..." | "raw_text_only" —
+                                       # lets a recruiter know whether this score used structured RChilli
+                                       # data or degraded to raw text, since that's a real quality difference
     created_at = Column(DateTime, default=datetime.utcnow)
 
     candidate = relationship("Candidate", back_populates="screening_results")

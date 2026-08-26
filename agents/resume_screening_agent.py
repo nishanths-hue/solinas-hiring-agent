@@ -8,14 +8,19 @@ Contract this agent must honor (from the doc, non-negotiable):
     Section 2: "AI should assist... Humans should make decisions."
   - Output feeds recruiter_screening_notes (Section 19), it does not replace it.
 
-In production, swap `parse_resume_stub` for a real parser (Affinda / RChilli / HireEZ,
-as named in Section 18) — this stub exists so the pipeline is runnable without a
-paid parsing API key.
+Resume parsing: RChilli (Section 18's open vendor decision, resolved Aug 26,
+2026 — see agents/rchilli_client.py). If RChilli parsing fails for any reason
+(bad file, API outage, missing key), this falls back to raw-text scoring
+rather than blocking the whole screening call — but the fallback is never
+silent: parsing_status in the result tells the recruiter which path was used,
+since scoring off structured fields vs. raw text is a real quality difference
+worth knowing about, not something to paper over.
 """
 
 import json
 import os
 from anthropic import Anthropic
+from agents.rchilli_client import parse_resume_file, RChilliError
 
 MODEL = "claude-sonnet-4-6"
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -31,30 +36,48 @@ anything about the candidate beyond what is given. You must:
 Return valid JSON only."""
 
 
-def parse_resume_stub(resume_text: str) -> dict:
-    """Placeholder for Affinda/RChilli/HireEZ parsing (Section 18).
-    Real integration should extract structured fields BEFORE scoring so the
-    scoring call is grounded in structured data, not raw text alone."""
-    return {"raw_text": resume_text}
+def parse_resume(resume_text: str = None, file_bytes: bytes = None, filename: str = None) -> dict:
+    """
+    Prefers RChilli structured parsing when a file is provided. Falls back to
+    raw text (either because only text was given, or because RChilli failed)
+    with parsing_status set so callers/recruiters know which happened.
+    """
+    if file_bytes is not None and filename:
+        try:
+            parsed = parse_resume_file(file_bytes, filename)
+            parsed["parsing_status"] = "rchilli_structured"
+            return parsed
+        except RChilliError as e:
+            # Degrade, don't block — but log/surface it, not swallow it
+            return {"raw_text": resume_text or "", "parsing_status": f"rchilli_failed: {e}"}
+    return {"raw_text": resume_text or "", "parsing_status": "raw_text_only"}
 
 
-def screen_candidate(resume_text: str, role: dict) -> dict:
+def screen_candidate(resume_text: str = None, role: dict = None,
+                      file_bytes: bytes = None, filename: str = None) -> dict:
     """
     role: dict with role_title, mandatory_skills, nice_to_have_skills,
           experience_range, business_need.
+
+    Pass file_bytes + filename to use RChilli structured parsing; pass only
+    resume_text to score off raw text (current default — see note below).
 
     Returns dict matching resume_screening_results columns:
       fit_score, matched_skills, missing_skills, risk_flags,
       suggested_probe_areas, suggested_priority, score_explanation
     """
-    parsed = parse_resume_stub(resume_text)
+    parsed = parse_resume(resume_text=resume_text, file_bytes=file_bytes, filename=filename)
+
+    if parsed["parsing_status"] == "rchilli_structured":
+        candidate_section = f"CANDIDATE RESUME (structured, via RChilli):\n{json.dumps(parsed, indent=2)}"
+    else:
+        candidate_section = f"CANDIDATE RESUME (raw text — {parsed['parsing_status']}):\n{parsed['raw_text']}"
 
     user_prompt = f"""
 ROLE REQUIREMENTS:
 {json.dumps(role, indent=2)}
 
-CANDIDATE RESUME (raw text):
-{parsed['raw_text']}
+{candidate_section}
 
 Score this candidate and return this exact JSON schema:
 {{
@@ -84,6 +107,7 @@ Priority bucket logic (Section 19 of the design doc):
     text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     result = json.loads(text)
     result["model_used"] = MODEL
+    result["parsing_status"] = parsed["parsing_status"]
     return result
 
 
