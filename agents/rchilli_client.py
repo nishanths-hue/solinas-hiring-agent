@@ -75,20 +75,41 @@ def parse_resume_file(file_bytes: bytes, filename: str) -> dict:
     return _extract_screening_fields(parsed)
 
 
+def _stringify(value, *keys):
+    """
+    Handles a real discovered inconsistency in RChilli's response: some
+    nested fields (confirmed: JobPeriod) come back as a plain string rather
+    than the {"FormattedX": "..."} object shape other fields use. Rather
+    than guess which fields are which shape, this treats every field
+    defensively — if it's a string, use it directly; if it's a dict, try
+    the given candidate keys in order; anything else (including None)
+    returns None instead of raising.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for k in keys:
+            v = value.get(k)
+            if v:
+                return v
+    return None
+
+
 def _extract_screening_fields(parsed: dict) -> dict:
     """Pulls out only what the screening agent actually needs, in a stable
     shape — insulates resume_screening_agent.py from RChilli's exact response
     schema, so a future RChilli API version change means editing one function,
     not every caller.
 
-    Defensive against explicit nulls, not just missing keys: RChilli's JSON
-    can include a key with value null for a field the resume doesn't have
-    (e.g. "Name": null), which dict.get(key, default) does NOT catch — the
-    default only applies when the key is absent. `(parsed.get(k) or {})`
-    catches both missing AND explicitly-null cases.
+    Defensive against BOTH explicit nulls AND type inconsistencies — RChilli's
+    real response mixes nested-object fields with plain-string fields
+    unpredictably (confirmed Aug 26, 2026: JobPeriod is a plain string, not
+    the {"FormattedDuration": ...} shape other date/duration fields use).
+    _stringify() above handles both shapes for every field, rather than
+    assuming a fixed schema per field.
     """
-    name_obj = parsed.get("Name") or {}
-    worked_period = parsed.get("WorkedPeriod") or {}
     skills = parsed.get("SkillKeywords") or ""
     segments = parsed.get("SegregatedSkills") or []
     experience = parsed.get("SegregatedExperience") or []
@@ -96,37 +117,34 @@ def _extract_screening_fields(parsed: dict) -> dict:
 
     def safe_experience_entry(e):
         e = e or {}
-        employer = e.get("Employer") or {}
-        job_profile = e.get("JobProfile") or {}
-        job_period = e.get("JobPeriod") or {}
+        if not isinstance(e, dict):
+            return {"employer": None, "designation": None, "duration": _stringify(e)}
         return {
-            "employer": employer.get("EmployerName"),
-            "designation": job_profile.get("FormattedName"),
-            "duration": job_period.get("FormattedDuration"),
+            "employer": _stringify(e.get("Employer"), "EmployerName", "Name"),
+            "designation": _stringify(e.get("JobProfile"), "FormattedName", "Name"),
+            "duration": _stringify(e.get("JobPeriod"), "FormattedDuration"),
         }
 
     def safe_education_entry(ed):
         ed = ed or {}
-        institution = ed.get("Institution") or {}
-        degree = ed.get("Degree") or {}
+        if not isinstance(ed, dict):
+            return {"institution": None, "degree": _stringify(ed)}
         return {
-            "institution": institution.get("Name"),
-            "degree": degree.get("NormalizeDegree"),
+            "institution": _stringify(ed.get("Institution"), "Name"),
+            "degree": _stringify(ed.get("Degree"), "NormalizeDegree", "FormattedDegree"),
         }
 
     first_exp = experience[0] if experience else {}
-    first_exp = first_exp or {}
-    first_employer = first_exp.get("Employer") or {}
+    first_employer = _stringify((first_exp or {}).get("Employer") if isinstance(first_exp, dict) else None,
+                                 "EmployerName", "Name")
 
     return {
-        "candidate_name": name_obj.get("FormattedName"),
-        "total_experience_years": worked_period.get("TotalExperienceInYear"),
-        "current_employer": first_employer.get("EmployerName"),
+        "candidate_name": _stringify(parsed.get("Name"), "FormattedName", "Name"),
+        "total_experience_years": _stringify(parsed.get("WorkedPeriod"), "TotalExperienceInYear"),
+        "current_employer": first_employer,
         "skills": [s.strip() for s in skills.split(",") if s.strip()] if skills else [],
         "skills_detail": segments,
         "experience_history": [safe_experience_entry(e) for e in experience],
         "education": [safe_education_entry(ed) for ed in education],
-        # kept for cases where the structured fields above miss something the
-        # LLM scoring step could still pick up from context
         "raw_text": parsed.get("PlainText") or "",
     }
