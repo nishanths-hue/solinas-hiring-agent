@@ -79,6 +79,12 @@ class Candidate(Base):
     role_id = Column(Integer, ForeignKey("roles.id"))
     resume_text = Column(Text)
     candidate_source = Column(String)
+    sub_source = Column(String)          # Section 16 — e.g. which LinkedIn post, which agency contact
+    referral_employee = Column(String)   # Section 16 — populated when candidate_source == "Employee Referral"
+    agency_name = Column(String)         # Section 16 — populated when candidate_source == "Agency"
+    is_duplicate_of = Column(Integer, ForeignKey("candidates.id"))  # Section 17 — linked, not merged;
+                                                                      # history is preserved by construction
+                                                                      # since nothing is ever deleted
     stage = Column(String, default="Applied")
     status = Column(String, default="Active")
     priority_override = Column(String, default="Normal")
@@ -130,6 +136,18 @@ class RecruiterScreeningNote(Base):
     recruiter_recommendation = Column(String)
     status = Column(String, default="New")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RecruiterTag(Base):
+    """Section 19 — 'operational tags' from the document's own fixed list.
+    A candidate can carry multiple tags simultaneously, hence a separate
+    table rather than a single column."""
+    __tablename__ = "recruiter_tags"
+    id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"))
+    tag = Column(String, nullable=False)
+    applied_by = Column(String)
+    applied_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Interview(Base):
