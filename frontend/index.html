@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solinas — Hiring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14171C;
+    --surface: #1C2027;
+    --surface-raised: #232833;
+    --border: #2A2F38;
+    --text: #E8EAED;
+    --text-dim: #8B92A0;
+    --text-faint: #5A6070;
+    --amber: #E8A33D;
+    --amber-dim: #4A3A1E;
+    --red: #E85D4A;
+    --red-dim: #3D2420;
+    --green: #4FAE7C;
+    --green-dim: #1D3327;
+    --radius: 6px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  a { color: inherit; }
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--text-faint); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 1px;
+  }
+  button.primary { background: var(--amber); color: #1A1508; border-color: var(--amber); font-weight: 600; }
+  button.primary:hover { filter: brightness(1.08); }
+  button.danger { background: var(--red-dim); color: var(--red); border-color: var(--red); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  input, select, textarea {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    width: 100%;
+  }
+  label { display: block; font-size: 12px; color: var(--text-dim); margin: 10px 0 4px; }
+  .hidden { display: none !important; }
+
+  /* ---- Login ---- */
+  #login-view {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-box {
+    width: 320px;
+    padding: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .wordmark {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 4px;
+  }
+  .login-box h1 { font-size: 18px; margin: 0 0 20px; font-weight: 600; }
+  #login-error { color: var(--red); font-size: 12px; margin-top: 10px; min-height: 16px; }
+
+  /* ---- Shell ---- */
+  #app-view { display: flex; height: 100vh; }
+  #sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+  }
+  #sidebar .wordmark { padding: 0 20px; margin-bottom: 24px; }
+  .nav-item {
+    padding: 9px 20px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); }
+  .nav-item.active { color: var(--amber); border-left-color: var(--amber); background: var(--amber-dim); }
+  #user-info {
+    margin-top: auto;
+    padding: 14px 20px 0;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+  }
+  #user-info .role-badge {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    background: var(--surface-raised);
+    border-radius: 999px;
+    color: var(--amber);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  #logout-btn { margin-top: 10px; width: 100%; font-size: 12px; padding: 6px; }
+
+  #main { flex: 1; overflow-y: auto; padding: 28px 36px; }
+  #main h2 { font-size: 20px; margin: 0 0 20px; font-weight: 600; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .panel h3 { font-size: 14px; margin: 0 0 14px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* ---- Dashboard cards ---- */
+  .stat-row { display: flex; gap: 14px; margin-bottom: 20px; }
+  .stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
+  .stat-card .num { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; }
+  .stat-card .label { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+
+  .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .funnel-label { width: 130px; font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+  .funnel-bar-track { flex: 1; height: 20px; background: var(--surface-raised); border-radius: 3px; overflow: hidden; }
+  .funnel-bar-fill { height: 100%; background: var(--amber); }
+  .funnel-count { width: 28px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+
+  .aging-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .aging-row:last-child { border-bottom: none; }
+  .badge-days { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--red-dim); color: var(--red); }
+
+  /* ---- Tables ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--text-dim); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px; border-bottom: 1px solid var(--border); }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--surface-raised); }
+  .priority-tag { font-size: 10px; font-family: 'IBM Plex Mono', monospace; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; }
+  .priority-Critical { background: var(--red-dim); color: var(--red); }
+  .priority-High { background: var(--amber-dim); color: var(--amber); }
+  .priority-Medium { background: var(--surface-raised); color: var(--text-dim); }
+
+  /* ---- Pipeline track (signature element) ---- */
+  .track { display: flex; align-items: center; gap: 2px; margin: 4px 0; }
+  .track-node {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .track-node.done { background: var(--green); }
+  .track-node.current { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-dim); }
+  .track-line { flex: 1; height: 1px; background: var(--border); min-width: 8px; }
+  .track-line.done { background: var(--green); }
+
+  /* ---- Detail drawer ---- */
+  #drawer {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 460px;
+    background: var(--surface); border-left: 1px solid var(--border);
+    padding: 24px; overflow-y: auto;
+    transform: translateX(100%); transition: transform 0.18s ease;
+    z-index: 10;
+  }
+  #drawer.open { transform: translateX(0); }
+  #drawer-close { float: right; }
+  #drawer h3 { margin-top: 0; }
+  .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 16px 0; }
+  .tab-btn { background: none; border: none; padding: 8px 4px; margin-right: 14px; color: var(--text-dim); font-weight: 500; border-bottom: 2px solid transparent; border-radius: 0; }
+  .tab-btn.active { color: var(--amber); border-bottom-color: var(--amber); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .field-row { display: flex; gap: 10px; }
+  .field-row > div { flex: 1; }
+  .form-actions { margin-top: 14px; display: flex; gap: 8px; }
+  .msg { font-size: 12px; margin-top: 8px; }
+  .msg.ok { color: var(--green); }
+  .msg.err { color: var(--red); }
+
+  .qa-block { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-top: 8px; }
+  .qa-block ul { margin: 6px 0 0; padding-left: 18px; }
+  .qa-block li { margin-bottom: 4px; font-size: 13px; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9; }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-view">
+  <div class="login-box">
+    <div class="wordmark">Solinas</div>
+    <h1>Hiring console</h1>
+    <label>Email</label>
+    <input id="login-email" type="email" autocomplete="username">
+    <label>Password</label>
+    <input id="login-password" type="password" autocomplete="current-password">
+    <div class="form-actions">
+      <button class="primary" onclick="doLogin()" style="width:100%">Sign in</button>
+    </div>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-view" class="hidden">
+  <div id="sidebar">
+    <div class="wordmark">Solinas</div>
+    <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">Dashboard</div>
+    <div class="nav-item" data-view="roles" onclick="showView('roles')">Roles</div>
+    <div class="nav-item" data-view="candidates" onclick="showView('candidates')">Candidates</div>
+    <div id="user-info">
+      <div id="user-name"></div>
+      <div id="user-role" class="role-badge"></div>
+      <button id="logout-btn" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div id="main">
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view">
+      <h2>Dashboard</h2>
+      <div class="stat-row" id="stat-cards"></div>
+      <div class="panel">
+        <h3>Candidate funnel</h3>
+        <div id="funnel-content">Loading…</div>
+      </div>
+      <div class="panel">
+        <h3>Roles aging past priority threshold</h3>
+        <div id="aging-content">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ROLES -->
+    <div id="view-roles" class="view hidden">
+      <h2>Roles
+        <button class="primary" style="float:right" id="new-role-btn" onclick="openNewRoleForm()">+ New role</button>
+      </h2>
+      <div class="panel" style="overflow-x:auto">
+        <table id="roles-table"><thead><tr>
+          <th>Title</th><th>Department</th><th>Priority</th><th>Stage</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- CANDIDATES -->
+    <div id="view-candidates" class="view hidden">
+      <h2>Candidates</h2>
+      <div class="panel">
+        <label>Filter by role</label>
+        <select id="candidate-role-filter" onchange="loadCandidatesForRole()"></select>
+      </div>
+      <div class="panel" style="overflow-x:auto">
+        <table id="candidates-table"><thead><tr>
+          <th>Name</th><th>Stage</th><th>Fit score</th><th>Interviews</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL DRAWER -->
+<div id="overlay" class="overlay hidden" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <button id="drawer-close" onclick="closeDrawer()">✕</button>
+  <div id="drawer-content"></div>
+</div>
+
+<script>
+const API = ''; // same-origin
+let TOKEN = localStorage.getItem('solinas_token') || null;
+let ROLE = null;
+let USER_NAME = null;
+let CURRENT_ROLE_ID = null;
+let CURRENT_CANDIDATE_ID = null;
+let ASSIGNMENT_REPO_CACHE = null;
+
+// ---------- auth ----------
+function decodeJWT(token) {
+  try {
+    const payload = token.split('.')[1];
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return {}; }
+}
+
+async function api(path, options = {}) {
+  const headers = options.headers || {};
+  if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+  if (options.body && !(options.body instanceof URLSearchParams)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const resp = await fetch(API + path, { ...options, headers });
+  if (resp.status === 401) { doLogout(); throw new Error('Session expired'); }
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.detail || `Request failed (${resp.status})`);
+  return data;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  try {
+    const body = new URLSearchParams({ username: email, password });
+    const resp = await fetch(API + '/auth/login', { method: 'POST', body });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Login failed');
+    TOKEN = data.access_token;
+    localStorage.setItem('solinas_token', TOKEN);
+    initSession();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+function doLogout() {
+  TOKEN = null;
+  localStorage.removeItem('solinas_token');
+  document.getElementById('app-view').classList.add('hidden');
+  document.getElementById('login-view').classList.remove('hidden');
+  document.getElementById('login-password').value = '';
+}
+
+function initSession() {
+  const claims = decodeJWT(TOKEN);
+  ROLE = claims.role;
+  USER_NAME = claims.sub;
+  document.getElementById('user-name').textContent = USER_NAME || '';
+  document.getElementById('user-role').textContent = ROLE || '';
+  document.getElementById('login-view').classList.add('hidden');
+  document.getElementById('app-view').classList.remove('hidden');
+  document.getElementById('new-role-btn').style.display =
+    ['leadership', 'recruitment', 'hiring_manager'].includes(ROLE) ? '' : 'none';
+  showView('dashboard');
+}
+
+if (TOKEN) initSession();
+
+// ---------- nav ----------
+function showView(name) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === name));
+  document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
+  document.getElementById('view-' + name).classList.remove('hidden');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'roles') loadRoles();
+  if (name === 'candidates') loadRoleFilterOptions();
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('overlay').classList.add('hidden');
+}
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+// ---------- dashboard ----------
+async function loadDashboard() {
+  try {
+    const overview = await api('/dashboard/overview');
+    document.getElementById('stat-cards').innerHTML = `
+      <div class="stat-card"><div class="num">${overview.open_roles}</div><div class="label">Open roles</div></div>
+      <div class="stat-card"><div class="num">${overview.active_candidates}</div><div class="label">Active candidates</div></div>
+    `;
+  } catch (e) { console.error(e); }
+
+  try {
+    const funnel = await api('/dashboard/funnel');
+    const max = Math.max(1, ...Object.values(funnel.funnel));
+    let html = '';
+    for (const [stage, count] of Object.entries(funnel.funnel)) {
+      const pct = Math.round((count / max) * 100);
+      html += `<div class="funnel-row">
+        <div class="funnel-label">${stage}</div>
+        <div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:${pct}%"></div></div>
+        <div class="funnel-count mono">${count}</div>
+      </div>`;
+    }
+    document.getElementById('funnel-content').innerHTML = html || '<span style="color:var(--text-dim)">No active candidates yet.</span>';
+  } catch (e) { document.getElementById('funnel-content').textContent = 'Could not load funnel.'; }
+
+  try {
+    const aging = await api('/dashboard/aging-roles');
+    if (aging.roles.length === 0) {
+      document.getElementById('aging-content').innerHTML = '<span style="color:var(--text-dim)">Nothing overdue.</span>';
+    } else {
+      document.getElementById('aging-content').innerHTML = aging.roles.map(r => `
+        <div class="aging-row">
+          <span>${r.role_title} <span class="priority-tag priority-${r.hiring_priority}">${r.hiring_priority}</span></span>
+          <span class="badge-days">${r.days_over}d over</span>
+        </div>`).join('');
+    }
+  } catch (e) { document.getElementById('aging-content').textContent = 'Could not load aging roles.'; }
+}
+
+// ---------- roles ----------
+async function loadRoles() {
+  const tbody = document.querySelector('#roles-table tbody');
+  tbody.innerHTML = `<tr><td colspan="4" class="mono" style="color:var(--text-dim)">Loading…</td></tr>`;
+  try {
+    const roles = await api('/roles');
+    if (roles.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">No roles yet. Create one to get started.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = roles.map(r => `
+      <tr class="clickable" onclick="openRoleDrawer(${r.id})">
+        <td>${r.role_title}</td>
+        <td>${r.department}</td>
+        <td><span class="priority-tag priority-${r.hiring_priority}">${r.hiring_priority}</span></td>
+        <td>${r.stage}</td>
+      </tr>`).join('');
+  } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
+}
+
+function openNewRoleForm() {
+  document.getElementById('drawer-content').innerHTML = `
+    <h3>New role</h3>
+    <label>Role title</label><input id="nr-title">
+    <div class="field-row">
+      <div><label>Department</label><input id="nr-dept"></div>
+      <div><label>Hiring manager</label><input id="nr-hm"></div>
+    </div>
+    <div class="field-row">
+      <label></label>
+    </div>
+    <div class="field-row">
+      <div><label>Priority</label>
+        <select id="nr-priority"><option>Critical</option><option selected>High</option><option>Medium</option></select>
+      </div>
+      <div><label>Experience range</label><input id="nr-exp" placeholder="e.g. 2-4 years"></div>
+    </div>
+    <label>Business need</label><textarea id="nr-need" rows="2"></textarea>
+    <label>KPI expectations</label><textarea id="nr-kpi" rows="2"></textarea>
+    <div class="form-actions">
+      <button class="primary" onclick="submitNewRole()">Create role</button>
+    </div>
+    <div id="nr-msg" class="msg"></div>
+  `;
+  openDrawer();
+}
+
+async function submitNewRole() {
+  const msg = document.getElementById('nr-msg');
+  try {
+    const payload = {
+      role_title: document.getElementById('nr-title').value,
+      department: document.getElementById('nr-dept').value,
+      hiring_manager: document.getElementById('nr-hm').value,
+      hiring_priority: document.getElementById('nr-priority').value,
+      experience_range: document.getElementById('nr-exp').value,
+      business_need: document.getElementById('nr-need').value,
+      kpi_expectations: document.getElementById('nr-kpi').value,
+      replacement_or_new: 'New Role',
+    };
+    await api('/roles', { method: 'POST', body: JSON.stringify(payload) });
+    msg.className = 'msg ok'; msg.textContent = 'Role created.';
+    loadRoles();
+    setTimeout(closeDrawer, 500);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function openRoleDrawer(roleId) {
+  CURRENT_ROLE_ID = roleId;
+  const content = document.getElementById('drawer-content');
+  content.innerHTML = 'Loading…';
+  openDrawer();
+  try {
+    const pipeline = await api(`/dashboard/roles/${roleId}/pipeline`);
+    const canGenJD = ['leadership', 'recruitment'].includes(ROLE);
+    content.innerHTML = `
+      <h3>${pipeline.role_title}</h3>
+      ${canGenJD ? `<button onclick="generateJD(${roleId})">Generate JD</button>` : ''}
+      <div id="jd-result" class="qa-block hidden"></div>
+      <h3 style="margin-top:20px">Pipeline (${pipeline.candidate_count})</h3>
+      ${pipeline.candidates.length === 0 ? '<p style="color:var(--text-dim)">No candidates yet.</p>' :
+        pipeline.candidates.map(c => `
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+            <strong>${c.full_name}</strong> — ${c.stage}<br>
+            <span style="font-size:12px;color:var(--text-dim)">
+              Fit: ${c.fit_score ?? '—'} · Interviews: ${c.interviews_completed} · Well covered: ${c.areas_well_covered}
+            </span>
+          </div>`).join('')
+      }
+    `;
+  } catch (e) { content.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
+}
+
+async function generateJD(roleId) {
+  const el = document.getElementById('jd-result');
+  el.classList.remove('hidden');
+  el.textContent = 'Generating…';
+  try {
+    const result = await api(`/roles/${roleId}/generate-jd`, { method: 'POST' });
+    el.innerHTML = `<strong>Job description drafted.</strong><div style="white-space:pre-wrap;margin-top:8px;font-size:12px">${result.internal_assets.job_description}</div>`;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+// ---------- candidates ----------
+async function loadRoleFilterOptions() {
+  const sel = document.getElementById('candidate-role-filter');
+  try {
+    const roles = await api('/roles');
+    sel.innerHTML = roles.map(r => `<option value="${r.id}">${r.role_title}</option>`).join('');
+    if (roles.length) loadCandidatesForRole();
+  } catch (e) { sel.innerHTML = `<option>Could not load roles</option>`; }
+}
+
+async function loadCandidatesForRole() {
+  const roleId = document.getElementById('candidate-role-filter').value;
+  const tbody = document.querySelector('#candidates-table tbody');
+  if (!roleId) { tbody.innerHTML = ''; return; }
+  tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Loading…</td></tr>`;
+  try {
+    const pipeline = await api(`/dashboard/roles/${roleId}/pipeline`);
+    if (pipeline.candidates.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">No candidates for this role yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = pipeline.candidates.map(c => `
+      <tr class="clickable" onclick="openCandidateDrawer(${c.candidate_id})">
+        <td>${c.full_name}</td>
+        <td>${c.stage}</td>
+        <td class="mono">${c.fit_score ?? '—'}</td>
+        <td class="mono">${c.interviews_completed}</td>
+      </tr>`).join('');
+  } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
+}
+
+async function openCandidateDrawer(candidateId) {
+  CURRENT_CANDIDATE_ID = candidateId;
+  const content = document.getElementById('drawer-content');
+  const canSeeRefs = ['leadership', 'recruitment'].includes(ROLE);
+  content.innerHTML = `
+    <h3>Candidate #${candidateId}</h3>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="interviews" onclick="switchTab('interviews')">Interviews</button>
+      <button class="tab-btn" data-tab="assignments" onclick="switchTab('assignments')">Assignments</button>
+      ${canSeeRefs ? `<button class="tab-btn" data-tab="references" onclick="switchTab('references')">References</button>` : ''}
+    </div>
+    <div id="tab-interviews" class="tab-panel active"></div>
+    <div id="tab-assignments" class="tab-panel"></div>
+    ${canSeeRefs ? `<div id="tab-references" class="tab-panel"></div>` : ''}
+  `;
+  openDrawer();
+  loadInterviewsTab(candidateId);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'assignments') loadAssignmentsTab(CURRENT_CANDIDATE_ID);
+  if (name === 'references') loadReferencesTab(CURRENT_CANDIDATE_ID);
+}
+
+async function loadInterviewsTab(candidateId) {
+  const el = document.getElementById('tab-interviews');
+  const canSubmit = ['interviewer', 'hiring_manager'].includes(ROLE);
+  el.innerHTML = 'Loading…';
+  try {
+    const list = await api(`/candidates/${candidateId}/interviews`);
+    const track = list.map(iv => {
+      const cls = iv.coverage_level === 'Well Covered' ? 'done' : iv.coverage_level === 'Lightly Covered' ? 'current' : '';
+      return `<div class="track-node ${cls}" title="${iv.evaluation_area}: ${iv.coverage_level}"></div><div class="track-line ${cls}"></div>`;
+    }).join('');
+    el.innerHTML = `
+      ${list.length ? `<div class="track">${track}<div class="track-node"></div></div>` : ''}
+      ${list.map(iv => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <strong>${iv.evaluation_area}</strong> — ${iv.coverage_level} (${iv.assessment})<br>
+          <span style="color:var(--text-dim);font-size:12px">${iv.interviewer_name || ''} · ${iv.recommendation || ''}</span>
+        </div>`).join('') || '<p style="color:var(--text-dim)">No feedback yet.</p>'}
+      <button style="margin-top:10px" onclick="loadBriefing(${candidateId})">Get pre-interview briefing</button>
+      <div id="briefing-result" class="qa-block hidden"></div>
+      ${canSubmit ? interviewFormHTML() : ''}
+    `;
+  } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
+}
+
+function interviewFormHTML() {
+  return `
+    <h3 style="margin-top:18px">Submit feedback</h3>
+    <label>Evaluation area</label><input id="iv-area" placeholder="e.g. Technical Fundamentals">
+    <div class="field-row">
+      <div><label>Coverage</label><select id="iv-coverage"><option>Not Covered</option><option>Lightly Covered</option><option>Well Covered</option></select></div>
+      <div><label>Confidence</label><select id="iv-confidence"><option>Low</option><option>Medium</option><option>High</option></select></div>
+    </div>
+    <label>Assessment</label>
+    <select id="iv-assessment"><option>Strong Positive</option><option>Positive</option><option>Neutral</option><option>Concern</option><option>Strong Concern</option></select>
+    <label>Strengths</label><textarea id="iv-strengths" rows="2"></textarea>
+    <label>Concerns</label><textarea id="iv-concerns" rows="2"></textarea>
+    <label>Recommendation</label><input id="iv-rec" placeholder="e.g. Proceed">
+    <div class="form-actions"><button class="primary" onclick="submitInterview()">Submit</button></div>
+    <div id="iv-msg" class="msg"></div>
+  `;
+}
+
+async function loadBriefing(candidateId) {
+  const el = document.getElementById('briefing-result');
+  el.classList.remove('hidden');
+  el.textContent = 'Loading briefing…';
+  try {
+    const b = await api(`/candidates/${candidateId}/interviews/briefing`);
+    let html = `<strong>${b.briefing_summary || ''}</strong>`;
+    for (const [area, questions] of Object.entries(b.suggested_focus_questions || {})) {
+      html += `<div style="margin-top:8px"><em>${area}</em><ul>${questions.map(q => `<li>${q}</li>`).join('')}</ul></div>`;
+    }
+    if (Object.keys(b.suggested_focus_questions || {}).length === 0) {
+      html += `<p style="color:var(--text-dim);margin-top:6px">All defined areas already well covered.</p>`;
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function submitInterview() {
+  const msg = document.getElementById('iv-msg');
+  try {
+    const payload = {
+      evaluation_area: document.getElementById('iv-area').value,
+      coverage_level: document.getElementById('iv-coverage').value,
+      confidence_level: document.getElementById('iv-confidence').value,
+      assessment: document.getElementById('iv-assessment').value,
+      strengths: document.getElementById('iv-strengths').value,
+      concerns: document.getElementById('iv-concerns').value || null,
+      recommendation: document.getElementById('iv-rec').value,
+    };
+    await api(`/candidates/${CURRENT_CANDIDATE_ID}/interviews`, { method: 'POST', body: JSON.stringify(payload) });
+    msg.className = 'msg ok'; msg.textContent = 'Feedback submitted.';
+    loadInterviewsTab(CURRENT_CANDIDATE_ID);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function loadAssignmentsTab(candidateId) {
+  const el = document.getElementById('tab-assignments');
+  const canSend = ['recruitment', 'hiring_manager'].includes(ROLE);
+  const canScore = ['hiring_manager', 'interviewer'].includes(ROLE);
+  el.innerHTML = 'Loading…';
+  try {
+    const list = await api(`/candidates/${candidateId}/assignments`);
+    let html = list.length ? list.map(a => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        Assignment #${a.id} — ${a.status} ${a.weighted_total != null ? `· score: <strong class="mono">${a.weighted_total}</strong>` : ''}
+        ${a.status === 'Sent' && canSend ? `<button style="margin-left:8px" onclick="submitAssignment(${a.id})">Mark submitted</button>` : ''}
+        ${(a.status === 'Submitted') && canScore ? `<button style="margin-left:8px" onclick="openScoreForm(${a.id})">Score</button>` : ''}
+      </div>`).join('') : '<p style="color:var(--text-dim)">No assignments yet.</p>';
+    if (canSend) {
+      if (ASSIGNMENT_REPO_CACHE === null) {
+        try { ASSIGNMENT_REPO_CACHE = await api('/assignment-repository'); } catch { ASSIGNMENT_REPO_CACHE = []; }
+      }
+      html += `
+        <h3 style="margin-top:18px">Send assignment</h3>
+        ${ASSIGNMENT_REPO_CACHE.length === 0 ? '<p style="color:var(--text-dim);font-size:12px">No assignment templates in the repository yet.</p>' : `
+          <select id="asg-repo">${ASSIGNMENT_REPO_CACHE.map(r => `<option value="${r.id}">${r.assignment_name}</option>`).join('')}</select>
+          <div class="form-actions"><button class="primary" onclick="sendAssignment(${candidateId})">Send</button></div>
+        `}
+        <div id="asg-msg" class="msg"></div>
+      `;
+    }
+    document.getElementById('score-form-container')?.remove();
+    html += `<div id="score-form-container"></div>`;
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
+}
+
+async function sendAssignment(candidateId) {
+  const msg = document.getElementById('asg-msg');
+  try {
+    const repoId = parseInt(document.getElementById('asg-repo').value);
+    await api(`/candidates/${candidateId}/assignments`, { method: 'POST', body: JSON.stringify({ assignment_repository_id: repoId }) });
+    msg.className = 'msg ok'; msg.textContent = 'Assignment sent.';
+    loadAssignmentsTab(candidateId);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function submitAssignment(assignmentId) {
+  try {
+    await api(`/candidates/${CURRENT_CANDIDATE_ID}/assignments/${assignmentId}/submit`, { method: 'POST' });
+    loadAssignmentsTab(CURRENT_CANDIDATE_ID);
+  } catch (e) { alert(e.message); }
+}
+
+function openScoreForm(assignmentId) {
+  const container = document.getElementById('score-form-container');
+  container.innerHTML = `
+    <h3 style="margin-top:18px">Score assignment #${assignmentId}</h3>
+    <label>Technical accuracy (0-100, weight 40%)</label><input id="sc-tech" type="number" min="0" max="100">
+    <label>Problem solving (25%)</label><input id="sc-prob" type="number" min="0" max="100">
+    <label>Clarity / structure (15%)</label><input id="sc-clarity" type="number" min="0" max="100">
+    <label>Practical thinking (10%)</label><input id="sc-practical" type="number" min="0" max="100">
+    <label>Completeness (10%)</label><input id="sc-complete" type="number" min="0" max="100">
+    <div class="form-actions"><button class="primary" onclick="submitScore(${assignmentId})">Submit score</button></div>
+    <div id="sc-msg" class="msg"></div>
+  `;
+}
+
+async function submitScore(assignmentId) {
+  const msg = document.getElementById('sc-msg');
+  try {
+    const payload = {
+      technical_accuracy_score: parseFloat(document.getElementById('sc-tech').value),
+      problem_solving_score: parseFloat(document.getElementById('sc-prob').value),
+      clarity_structure_score: parseFloat(document.getElementById('sc-clarity').value),
+      practical_thinking_score: parseFloat(document.getElementById('sc-practical').value),
+      completeness_score: parseFloat(document.getElementById('sc-complete').value),
+    };
+    const result = await api(`/candidates/${CURRENT_CANDIDATE_ID}/assignments/${assignmentId}/score`, { method: 'POST', body: JSON.stringify(payload) });
+    msg.className = 'msg ok'; msg.textContent = `Scored: ${result.weighted_total}`;
+    loadAssignmentsTab(CURRENT_CANDIDATE_ID);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function loadReferencesTab(candidateId) {
+  const el = document.getElementById('tab-references');
+  if (!el) return;
+  el.innerHTML = 'Loading…';
+  try {
+    const list = await api(`/candidates/${candidateId}/reference-checks`);
+    let html = list.length ? list.map(r => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <strong>${r.reference_name}</strong> — ${r.overall_outcome} · risk: ${r.risk_level}<br>
+        <span style="color:var(--text-dim);font-size:12px">${r.ai_summary || ''}</span>
+      </div>`).join('') : '<p style="color:var(--text-dim)">No reference checks logged yet.</p>';
+    html += `
+      <button style="margin-top:10px" onclick="loadRefQuestions(${candidateId})">Suggest reference questions</button>
+      <div id="ref-questions" class="qa-block hidden"></div>
+      <h3 style="margin-top:18px">Log a reference check</h3>
+      <label>Reference name</label><input id="ref-name">
+      <label>Relationship</label><input id="ref-rel" placeholder="e.g. Former manager">
+      <label>Call notes</label><textarea id="ref-notes" rows="4" placeholder="Paste raw notes from the call"></textarea>
+      <div class="form-actions"><button class="primary" onclick="submitReferenceCheck(${candidateId})">Log & summarize</button></div>
+      <div id="ref-msg" class="msg"></div>
+    `;
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
+}
+
+async function loadRefQuestions(candidateId) {
+  const el = document.getElementById('ref-questions');
+  el.classList.remove('hidden');
+  el.textContent = 'Generating…';
+  try {
+    const q = await api(`/candidates/${candidateId}/reference-checks/questions`);
+    let html = '<strong>Standard</strong><ul>' + q.standard_questions.map(x => `<li>${x}</li>`).join('') + '</ul>';
+    if (q.concern_targeted_questions?.length) {
+      html += '<strong>Targeted at prior concerns</strong><ul>' + q.concern_targeted_questions.map(x => `<li>${x}</li>`).join('') + '</ul>';
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function submitReferenceCheck(candidateId) {
+  const msg = document.getElementById('ref-msg');
+  try {
+    const payload = {
+      reference_name: document.getElementById('ref-name').value,
+      reference_relationship: document.getElementById('ref-rel').value,
+      raw_notes: document.getElementById('ref-notes').value,
+    };
+    await api(`/candidates/${candidateId}/reference-checks`, { method: 'POST', body: JSON.stringify(payload) });
+    msg.className = 'msg ok'; msg.textContent = 'Logged and summarized.';
+    loadReferencesTab(candidateId);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+</script>
+</body>
+</html>
