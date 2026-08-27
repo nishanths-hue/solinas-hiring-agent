@@ -179,9 +179,63 @@ def reset_password(
 
 
 @router.get("/users")
-def list_users(db: Session = Depends(get_db), user: User = Depends(require_roles("leadership", "recruitment"))):
+def list_users(include_inactive: bool = False, db: Session = Depends(get_db), user: User = Depends(require_roles("leadership", "recruitment"))):
     """Lets leadership/recruitment see who already has an account before
     attempting creation, rather than discovering a duplicate only via a
-    400 error with no visibility into what already exists."""
-    users = db.query(User).filter(User.is_active == True).all()  # noqa: E712
-    return [{"id": u.id, "email": u.email, "full_name": u.full_name, "role": u.role} for u in users]
+    400 error with no visibility into what already exists.
+
+    include_inactive=True is needed to ever find and reactivate someone —
+    without it, a deactivated account would simply disappear from view
+    with no way to undo the deactivation through this endpoint."""
+    query = db.query(User)
+    if not include_inactive:
+        query = query.filter(User.is_active == True)  # noqa: E712
+    users = query.all()
+    return [{"id": u.id, "email": u.email, "full_name": u.full_name, "role": u.role, "is_active": u.is_active} for u in users]
+
+
+@router.post("/users/{user_id}/deactivate")
+def deactivate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("leadership")),
+):
+    """
+    Deactivates rather than deletes — hard-deleting a user row would either
+    destroy or orphan a real amount of history this system deliberately
+    preserves elsewhere (interview feedback attributed to them, screening
+    notes, activity timeline entries, requirement edit history). This
+    matches the same philosophy already used for candidates: rejecting
+    archives rather than erases (Section 25), duplicates link rather than
+    merge-and-delete. authenticate_user() already filters on is_active, so
+    a deactivated account is immediately unable to log in — no separate
+    session-revocation logic needed.
+    """
+    target = db.query(User).get(user_id)
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.id == current_user.id:
+        raise HTTPException(400, "You cannot deactivate your own account.")
+    if target.role == "leadership":
+        remaining = db.query(User).filter(
+            User.role == "leadership", User.is_active == True, User.id != user_id  # noqa: E712
+        ).count()
+        if remaining == 0:
+            raise HTTPException(400, "Cannot deactivate the last active leadership account — this would lock everyone out of admin capability.")
+    target.is_active = False
+    db.commit()
+    return {"id": user_id, "email": target.email, "is_active": False}
+
+
+@router.post("/users/{user_id}/reactivate")
+def reactivate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("leadership")),
+):
+    target = db.query(User).get(user_id)
+    if not target:
+        raise HTTPException(404, "User not found")
+    target.is_active = True
+    db.commit()
+    return {"id": user_id, "email": target.email, "is_active": True}
