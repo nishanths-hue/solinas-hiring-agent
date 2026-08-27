@@ -266,6 +266,10 @@
         <h3>Priority queue — not FIFO, highest score first</h3>
         <div id="priority-queue-content">Loading…</div>
       </div>
+      <div class="panel">
+        <h3>Activity feed</h3>
+        <div id="activity-feed-content">Loading…</div>
+      </div>
     </div>
 
     <!-- ROLES -->
@@ -286,7 +290,13 @@
         <button class="primary" style="float:right" id="new-candidate-btn" onclick="openNewCandidateForm()">+ New candidate</button>
       </h2>
       <div class="panel">
-        <label>Filter by role</label>
+        <label>Status</label>
+        <select id="candidate-status-filter" onchange="loadCandidatesForRole()">
+          <option value="active">Active</option>
+          <option value="hold">Hold for Future</option>
+          <option value="archived">Archived</option>
+        </select>
+        <label style="margin-top:12px">Filter by role (Active only)</label>
         <select id="candidate-role-filter" onchange="loadCandidatesForRole()"></select>
         <label style="margin-top:12px">Search (skills, resume text, tags, source)</label>
         <div style="display:flex;gap:8px">
@@ -296,7 +306,7 @@
         </div>
       </div>
       <div class="panel" style="overflow-x:auto">
-        <table id="candidates-table"><thead><tr>
+        <table id="candidates-table"><thead id="candidates-thead"><tr>
           <th>Name</th><th>Stage</th><th>Fit score</th><th>Interviews</th>
         </tr></thead><tbody></tbody></table>
       </div>
@@ -588,6 +598,20 @@ async function loadDashboard() {
         </div>`).join('');
     }
   } catch (e) { document.getElementById('priority-queue-content').textContent = 'Could not load priority queue.'; }
+
+  try {
+    const feed = await api('/dashboard/activity-feed?limit=15');
+    document.getElementById('activity-feed-content').innerHTML = feed.length ? feed.map(f => `
+      <div class="aging-row" style="align-items:flex-start">
+        <span style="flex:1;font-size:13px">
+          ${f.type === 'founder_review_pending' ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber);margin-right:6px">Founder review</span>' : ''}
+          ${f.description}
+        </span>
+        <span class="mono" style="color:var(--text-faint);font-size:11px;white-space:nowrap;margin-left:10px">
+          ${f.occurred_at ? new Date(f.occurred_at).toLocaleString() : ''}
+        </span>
+      </div>`).join('') : '<span style="color:var(--text-dim)">No recent activity.</span>';
+  } catch (e) { document.getElementById('activity-feed-content').textContent = 'Could not load activity feed.'; }
 }
 
 // ---------- roles ----------
@@ -817,12 +841,12 @@ async function loadRoleFilterOptions() {
 
 async function runCandidateSearch() {
   const q = document.getElementById('candidate-search-input').value.trim();
+  const thead = document.getElementById('candidates-thead');
   const tbody = document.querySelector('#candidates-table tbody');
   if (!q) return;
+  thead.innerHTML = '<th>Name</th><th>Stage</th><th colspan="2">Match</th>';
   tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Searching…</td></tr>`;
   try {
-    // Uses /candidates/search/query, not /candidates/search — the latter
-    // collides with the existing GET /candidates/{candidate_id} route.
     const results = await api(`/candidates/search/query?q=${encodeURIComponent(q)}`);
     if (results.length === 0) {
       tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">No matches for "${q}".</td></tr>`;
@@ -843,24 +867,58 @@ function clearCandidateSearch() {
 }
 
 async function loadCandidatesForRole() {
+  const status = document.getElementById('candidate-status-filter').value;
   const roleId = document.getElementById('candidate-role-filter').value;
+  const thead = document.getElementById('candidates-thead');
   const tbody = document.querySelector('#candidates-table tbody');
-  if (!roleId) { tbody.innerHTML = ''; return; }
-  tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Loading…</td></tr>`;
-  try {
-    const pipeline = await api(`/dashboard/roles/${roleId}/pipeline`);
-    if (pipeline.candidates.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">No candidates for this role yet.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = pipeline.candidates.map(c => `
-      <tr class="clickable" onclick="openCandidateDrawer(${c.candidate_id})">
-        <td>${c.full_name}</td>
-        <td>${c.stage}</td>
-        <td class="mono">${c.fit_score ?? '—'}</td>
-        <td class="mono">${c.interviews_completed}</td>
-      </tr>`).join('');
-  } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
+  document.getElementById('candidate-role-filter').style.display = status === 'active' ? '' : 'none';
+
+  if (status === 'active') {
+    if (!roleId) { tbody.innerHTML = ''; return; }
+    thead.innerHTML = '<th>Name</th><th>Stage</th><th>Fit score</th><th>Owner</th><th>Next action</th>';
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-dim)">Loading…</td></tr>`;
+    try {
+      // Section 36's richer table view — owner + next_action, not just stage/fit
+      const rows = await api(`/dashboard/candidates-table?role_id=${roleId}`);
+      tbody.innerHTML = rows.length ? rows.map(r => `
+        <tr class="clickable" onclick="openCandidateDrawer(${r.candidate_id})">
+          <td>${r.full_name}</td>
+          <td>${r.current_stage}</td>
+          <td class="mono">${r.fit_score ?? '—'}</td>
+          <td style="font-size:12px;color:var(--text-dim)">${r.owner}</td>
+          <td style="font-size:12px">${r.next_action}</td>
+        </tr>`).join('') : `<tr><td colspan="5" style="color:var(--text-dim)">No candidates for this role yet.</td></tr>`;
+    } catch (e) { tbody.innerHTML = `<tr><td colspan="5" style="color:var(--red)">${e.message}</td></tr>`; }
+
+  } else if (status === 'hold') {
+    thead.innerHTML = '<th>Name</th><th>Role ID</th><th>Updated</th><th></th>';
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Loading…</td></tr>`;
+    try {
+      const rows = await api('/candidates/pool/hold-for-future');
+      tbody.innerHTML = rows.length ? rows.map(r => `
+        <tr class="clickable" onclick="openCandidateDrawer(${r.id})">
+          <td>${r.full_name}</td><td class="mono">${r.role_id ?? '—'}</td>
+          <td style="font-size:12px;color:var(--text-dim)">${r.updated_at ? new Date(r.updated_at).toLocaleDateString() : '—'}</td><td></td>
+        </tr>`).join('') : `<tr><td colspan="4" style="color:var(--text-dim)">No candidates on hold.</td></tr>`;
+    } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
+
+  } else if (status === 'archived') {
+    thead.innerHTML = '<th>Name</th><th>Status</th><th>Reason</th><th>Updated</th>';
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Loading…</td></tr>`;
+    try {
+      // Restricted-tier data (rejection reasons) intentionally not filtered
+      // here — GET /candidates/pool/archived has no role restriction
+      // server-side, matching Section 25's "preserve full history" intent
+      // rather than Section 10's compensation-tier restriction.
+      const rows = await api('/candidates/pool/archived');
+      tbody.innerHTML = rows.length ? rows.map(r => `
+        <tr class="clickable" onclick="openCandidateDrawer(${r.id})">
+          <td>${r.full_name}</td><td>${r.status}</td>
+          <td style="font-size:12px">${r.rejection_reason || r.withdrawal_reason || '—'}</td>
+          <td style="font-size:12px;color:var(--text-dim)">${r.updated_at ? new Date(r.updated_at).toLocaleDateString() : '—'}</td>
+        </tr>`).join('') : `<tr><td colspan="4" style="color:var(--text-dim)">Nothing archived yet.</td></tr>`;
+    } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
+  }
 }
 
 async function openNewCandidateForm() {
@@ -1032,6 +1090,13 @@ async function loadOverviewTab(candidateId) {
       html += `<h3 style="margin-top:16px">Well covered</h3><div style="font-size:13px;color:var(--green)">${d.competency_coverage_well_covered.join(', ')}</div>`;
     }
 
+    // Joining risk only exists once a candidate reaches Offer Accepted —
+    // the backend creates the tracker automatically at that transition, so
+    // a 404 here just means the candidate hasn't gotten there yet, not an error.
+    if (d.stage === 'Offer Accepted' || d.stage === 'Joined') {
+      html += `<h3 style="margin-top:16px">Joining risk</h3><div id="joining-risk-content">Loading…</div>`;
+    }
+
     html += `<h3 style="margin-top:16px">Timeline</h3>`;
     html += d.candidate_timeline.map(t => `
       <div style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -1040,7 +1105,56 @@ async function loadOverviewTab(candidateId) {
       </div>`).join('') || '<p style="color:var(--text-dim)">No activity logged yet.</p>';
 
     el.innerHTML = html;
+    if (d.stage === 'Offer Accepted' || d.stage === 'Joined') loadJoiningRisk(candidateId);
   } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
+}
+
+async function loadJoiningRisk(candidateId) {
+  const el = document.getElementById('joining-risk-content');
+  const canEdit = ['leadership', 'recruitment'].includes(ROLE);
+  try {
+    const risk = await api(`/candidates/${candidateId}/joining-risk`);
+    const riskColor = risk.risk_level === 'High Risk' ? 'var(--red)' : risk.risk_level === 'Moderate Risk' ? 'var(--amber)' : 'var(--green)';
+    let html = `
+      <div style="font-size:13px;margin-bottom:8px">
+        Owner: ${risk.recruiter_owner || '—'} ·
+        <span style="color:${riskColor};font-weight:600">${risk.risk_level}</span> ·
+        Confirmed: ${risk.joining_confirmed ? 'Yes' : 'No'}
+      </div>
+      ${risk.notes ? `<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">${risk.notes}</div>` : ''}
+    `;
+    if (canEdit) {
+      html += `
+        <select id="jr-risk-level">
+          <option ${risk.risk_level === 'Low Risk' ? 'selected' : ''}>Low Risk</option>
+          <option ${risk.risk_level === 'Moderate Risk' ? 'selected' : ''}>Moderate Risk</option>
+          <option ${risk.risk_level === 'High Risk' ? 'selected' : ''}>High Risk</option>
+        </select>
+        <label style="margin-top:8px">Notes</label>
+        <textarea id="jr-notes" rows="2">${risk.notes || ''}</textarea>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:8px">
+          <input type="checkbox" id="jr-confirmed" style="width:auto" ${risk.joining_confirmed ? 'checked' : ''}> Joining confirmed
+        </label>
+        <div class="form-actions"><button onclick="updateJoiningRisk(${candidateId})">Update</button></div>
+        <div id="jr-msg" class="msg"></div>
+      `;
+    }
+    el.innerHTML = html;
+  } catch (e) { el.innerHTML = `<span style="color:var(--text-dim);font-size:13px">${e.message}</span>`; }
+}
+
+async function updateJoiningRisk(candidateId) {
+  const msg = document.getElementById('jr-msg');
+  try {
+    const payload = {
+      risk_level: document.getElementById('jr-risk-level').value,
+      notes: document.getElementById('jr-notes').value || null,
+      joining_confirmed: document.getElementById('jr-confirmed').checked,
+    };
+    await api(`/candidates/${candidateId}/joining-risk`, { method: 'PATCH', body: JSON.stringify(payload) });
+    msg.className = 'msg ok'; msg.textContent = 'Updated.';
+    loadJoiningRisk(candidateId);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
 }
 
 async function loadNotesTab(candidateId) {
