@@ -1072,6 +1072,7 @@ async function openNewCandidateForm() {
       <button class="primary" onclick="submitNewCandidate()">Create candidate</button>
     </div>
     <div id="nc-msg" class="msg"></div>
+    <div id="nc-duplicate-warning"></div>
   `;
   openDrawer();
 }
@@ -1120,10 +1121,46 @@ async function submitNewCandidate() {
     }
 
     loadCandidatesForRole();
-    setTimeout(closeDrawer, (pastedText || fileInput.files.length === 0) ? 700 : 1400);
+
+    // Check for duplicates right after creation — matches on email, phone,
+    // or LinkedIn URL against every other candidate. If any turn up, stop
+    // the auto-close and let the person actually look, rather than
+    // silently closing the drawer on a candidate who might be a repeat.
+    let duplicates = [];
+    try { duplicates = await api(`/candidates/${created.id}/potential-duplicates`); } catch {}
+
+    if (duplicates.length > 0) {
+      const dupHtml = document.getElementById('nc-duplicate-warning');
+      dupHtml.innerHTML = `
+        <div class="qa-block" style="border-color:var(--red);margin-top:14px">
+          <strong style="color:var(--red)">Possible duplicate${duplicates.length > 1 ? 's' : ''} found</strong>
+          <div style="font-size:13px;color:var(--text-dim);margin:4px 0 8px">
+            Matched on: ${[...new Set(duplicates.flatMap(d => d.matched_on))].join(', ')}
+          </div>
+          ${duplicates.map(d => `
+            <div style="padding:8px 0;border-top:1px solid var(--border)">
+              <strong>${d.full_name}</strong> (candidate #${d.candidate_id})
+              <button style="margin-left:8px;font-size:12px" onclick="markAsDuplicate(${created.id}, ${d.candidate_id}, this)">Mark this as a duplicate</button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      setTimeout(closeDrawer, (pastedText || fileInput.files.length === 0) ? 700 : 1400);
+    }
   } catch (e) {
     msg.className = 'msg err'; msg.textContent = e.message;
   }
+}
+
+async function markAsDuplicate(candidateId, duplicateOfId, buttonEl) {
+  try {
+    await api(`/candidates/${candidateId}/mark-duplicate`, {
+      method: 'POST', body: JSON.stringify({ duplicate_of_candidate_id: duplicateOfId }),
+    });
+    buttonEl.parentElement.innerHTML = '<span style="color:var(--green)">Marked as duplicate — archived.</span>';
+    loadCandidatesForRole();
+  } catch (e) { alert(e.message); }
 }
 
 async function uploadResumeFile(candidateId, inputEl) {
@@ -1200,6 +1237,29 @@ async function loadOverviewTab(candidateId) {
   try {
     const d = await api(`/candidates/${candidateId}/detail-view`);
     let html = `<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">${d.applied_role || 'No role'} · ${d.status}</div>`;
+
+    // Duplicate check runs every time the Overview tab loads, not just at
+    // creation — a matching candidate could get added to the system later,
+    // long after this one was created.
+    try {
+      const duplicates = await api(`/candidates/${candidateId}/potential-duplicates`);
+      if (duplicates.length > 0) {
+        html += `
+          <div class="qa-block" style="border-color:var(--red)">
+            <strong style="color:var(--red)">Possible duplicate${duplicates.length > 1 ? 's' : ''}</strong>
+            <div style="font-size:13px;color:var(--text-dim);margin:4px 0 8px">
+              Matched on: ${[...new Set(duplicates.flatMap(dd => dd.matched_on))].join(', ')}
+            </div>
+            ${duplicates.map(dd => `
+              <div style="padding:6px 0;border-top:1px solid var(--border);font-size:13px">
+                ${dd.full_name} (#${dd.candidate_id})
+                <button style="margin-left:8px;font-size:11px" onclick="markAsDuplicate(${candidateId}, ${dd.candidate_id}, this)">Mark as duplicate</button>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    } catch {}
 
     if (d.rejection_reason) {
       html += `<div class="qa-block" style="border-color:var(--red)"><strong style="color:var(--red)">Rejected:</strong> ${d.rejection_reason}</div>`;

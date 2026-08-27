@@ -35,6 +35,16 @@ NAMED_TRANSITION_OWNERS = {
     ("Assignment Submitted", "Final Evaluation"): {"hiring_manager"},
     ("Final Evaluation", "Reference Check"): {"hiring_manager"},
     ("Reference Check", "Offer Discussion"): {"hiring_manager", "leadership"},
+    ("Offer Discussion", "Offer Released"): {"leadership", "recruitment"},  # NOT hiring_manager — offer
+                                                                              # release is compensation-adjacent,
+                                                                              # matches the doc's own permission
+                                                                              # table (hiring_manager has no
+                                                                              # involvement in offer strategy)
+                                                                              # anywhere else in the system.
+                                                                              # This was a real gap: without this
+                                                                              # entry it fell through to the
+                                                                              # default, which incorrectly
+                                                                              # included hiring_manager.
     ("Offer Released", "Joined"): {"recruitment"},
 }
 DEFAULT_ALLOWED_ROLES = {"recruitment", "leadership", "hiring_manager"}
