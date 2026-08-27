@@ -360,7 +360,7 @@
           <label>Full name</label><input id="user-fullname">
           <label>Password</label><input id="user-password" type="password" placeholder="They can log in with this — share it securely">
           <label>Role</label>
-          <select id="user-role"></select>
+          <select id="new-user-role-select"></select>
           <div class="form-actions"><button class="primary" onclick="createSingleUser()">Create</button></div>
           <div id="user-create-msg" class="msg"></div>
         </div>
@@ -518,7 +518,7 @@ async function loadAdminData() {
   const creatableRoles = ROLE === 'leadership'
     ? ['leadership', 'recruitment', 'hiring_manager', 'interviewer']
     : ['hiring_manager', 'interviewer'];
-  document.getElementById('user-role').innerHTML = creatableRoles.map(r => `<option value="${r}">${r}</option>`).join('');
+  document.getElementById('new-user-role-select').innerHTML = creatableRoles.map(r => `<option value="${r}">${r}</option>`).join('');
 
   loadUsersList();
 }
@@ -541,7 +541,7 @@ async function createSingleUser() {
   const email = document.getElementById('user-email').value.trim();
   const fullName = document.getElementById('user-fullname').value.trim();
   const password = document.getElementById('user-password').value;
-  const role = document.getElementById('user-role').value;
+  const role = document.getElementById('new-user-role-select').value;
   if (!email || !fullName || !password) { msg.className = 'msg err'; msg.textContent = 'All fields are required.'; return; }
   try {
     await api('/auth/users', { method: 'POST', body: JSON.stringify({ email, full_name: fullName, password, role }) });
