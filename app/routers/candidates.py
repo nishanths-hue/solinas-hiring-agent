@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Candidate, ActivityTimeline, ResumeScreeningResult, get_db, User
 from app.auth import get_current_user, require_roles
+from app.sla import start_sla_clock, complete_open_clock_for
 from agents.resume_screening_agent import screen_candidate, parse_resume, structured_to_text
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
@@ -37,6 +38,7 @@ def create_candidate(
         candidate_id=candidate.id, activity="Applied",
         stage_to="Applied", actor=user.email,
     ))
+    start_sla_clock(db, "candidate", candidate.id, "Resume review")
     db.commit()
     return {"id": candidate.id, "full_name": candidate.full_name, "stage": candidate.stage}
 
@@ -123,6 +125,7 @@ def run_screening(
         candidate_id=candidate_id, activity="AI resume screening completed",
         stage_from="Applied", stage_to="Resume Review", actor="resume_screening_agent",
     ))
+    complete_open_clock_for(db, "candidate", candidate_id, "Resume review")
     db.commit()
     return result
 

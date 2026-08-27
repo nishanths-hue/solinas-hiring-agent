@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models import ReferenceCheck, Candidate, Interview, Role, get_db, User
 from app.auth import get_current_user, require_roles
+from app.sla import complete_open_clock_for
 from agents.reference_check_agent import generate_reference_questions, summarize_reference_response
 
 router = APIRouter(prefix="/candidates/{candidate_id}/reference-checks", tags=["reference-checks"])
@@ -80,6 +81,7 @@ def log_reference_check(
     db.add(ref_check)
     db.commit()
     db.refresh(ref_check)
+    complete_open_clock_for(db, "candidate", candidate_id, "Reference completion")
 
     return {
         "id": ref_check.id, "candidate_id": candidate_id,

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import Role, get_db, User
 from app.auth import get_current_user, require_roles
 from app.permissions import filter_role_dict, can_edit
+from app.sla import start_sla_clock, complete_open_clock_for
 from agents.jd_agent import generate_hiring_assets
 
 router = APIRouter(prefix="/roles", tags=["roles"])
@@ -39,6 +40,7 @@ def create_role(
     db.add(role)
     db.commit()
     db.refresh(role)
+    start_sla_clock(db, "role", role.id, "Hiring request review")
     return filter_role_dict(_role_to_dict(role), user.role)
 
 
@@ -147,5 +149,7 @@ def transition_role(
         )
 
     role.stage = payload.to_stage
+    if payload.to_stage == "Approved":
+        complete_open_clock_for(db, "role", role_id, "Hiring request review")
     db.commit()
     return {"role_id": role_id, "from_stage": from_stage, "to_stage": payload.to_stage}

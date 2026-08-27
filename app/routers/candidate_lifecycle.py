@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Candidate, ActivityTimeline, JoiningRiskTracker, get_db, User
 from app.auth import get_current_user, require_roles
+from app.sla import start_sla_clock, complete_open_clock_for
 
 router = APIRouter(prefix="/candidates", tags=["candidate-lifecycle"])
 
@@ -132,6 +133,19 @@ def transition_candidate(
         stage_from=from_stage, stage_to=payload.to_stage, actor=user.email,
         is_stage_skip=is_skip, skip_reason=payload.skip_reason,
     ))
+
+    # SLA clocks — completing "Assignment sent" is here (not in assignments.py)
+    # because the clock closes when the CANDIDATE moves on, not when the
+    # assignment record itself changes status; those are two different
+    # actions that happen to usually coincide but aren't the same event.
+    if payload.to_stage == "Assignment Submitted":
+        complete_open_clock_for(db, "candidate", candidate_id, "Assignment sent")
+    if payload.to_stage == "Reference Check":
+        start_sla_clock(db, "candidate", candidate_id, "Reference completion")
+    if payload.to_stage == "Offer Discussion":
+        start_sla_clock(db, "candidate", candidate_id, "Offer release")
+    if payload.to_stage == "Offer Released":
+        complete_open_clock_for(db, "candidate", candidate_id, "Offer release")
 
     # Section 26 — joining tracker created automatically on Offer Accepted
     if payload.to_stage == "Offer Accepted":

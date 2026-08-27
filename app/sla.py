@@ -46,6 +46,29 @@ def complete_sla_clock(db: Session, clock_id: int):
         db.commit()
 
 
+def complete_open_clock_for(db: Session, entity_type: str, entity_id: int, stage_name: str):
+    """
+    Finds and completes the open clock matching this entity+stage, if one
+    exists. Silently does nothing if no matching open clock is found —
+    that's the correct behavior for an edge case like a candidate reaching
+    'Offer Released' without ever passing through 'Offer Discussion' (e.g.
+    a skip-logged jump), not an error worth surfacing to the caller.
+    """
+    clock = (
+        db.query(SlaClock)
+        .filter(
+            SlaClock.entity_type == entity_type,
+            SlaClock.entity_id == entity_id,
+            SlaClock.stage_name == stage_name,
+            SlaClock.completed_at.is_(None),
+        )
+        .first()
+    )
+    if clock:
+        clock.completed_at = datetime.now(timezone.utc)
+        db.commit()
+
+
 def evaluate_open_clocks(db: Session) -> list[dict]:
     open_clocks = db.query(SlaClock).filter(SlaClock.completed_at.is_(None)).all()
     changed = []

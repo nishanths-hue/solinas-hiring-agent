@@ -274,14 +274,46 @@ def operational_velocity(db: Session = Depends(get_db), user: User = Depends(get
         if days_idle > 3:
             idle_cases.append({"candidate_id": c.id, "full_name": c.full_name, "days_idle": round(days_idle, 1)})
 
+    # SLA compliance — now computable, since 5 of 13 named SLA stages are
+    # wired to real actions (see app/sla.py callers). Compliance is measured
+    # against COMPLETED clocks only — an open, still-running clock isn't yet
+    # a pass or a fail, so including it would understate or overstate the
+    # rate depending on how long it's been open.
+    completed_clocks = db.query(SlaClock).filter(SlaClock.completed_at.isnot(None)).all()
+    sla_compliance_percent = None
+    compliance_by_stage = {}
+    if completed_clocks:
+        met = 0
+        for clock in completed_clocks:
+            started = clock.started_at
+            completed = clock.completed_at
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            if completed.tzinfo is None:
+                completed = completed.replace(tzinfo=timezone.utc)
+            hours_taken = (completed - started).total_seconds() / 3600
+            within_sla = hours_taken <= clock.sla_hours
+            if within_sla:
+                met += 1
+            bucket = compliance_by_stage.setdefault(clock.stage_name, {"met": 0, "total": 0})
+            bucket["total"] += 1
+            if within_sla:
+                bucket["met"] += 1
+        sla_compliance_percent = round(met / len(completed_clocks) * 100, 1)
+        for stage, b in compliance_by_stage.items():
+            b["compliance_percent"] = round(b["met"] / b["total"] * 100, 1)
+
     return {
         "avg_resume_review_tat_hours": avg_resume_review_tat_hours,
         "resume_aging_over_48h": resume_aging,
         "candidate_idle_cases_over_3d": idle_cases,
-        "note": "sla_compliance_percent omitted — no endpoint currently starts an SLA clock "
-                "against real requests, so sla_clocks has no production data to compute from. "
-                "See app/sla.py; wiring start_sla_clock() into the relevant endpoints is a real "
-                "follow-up, not done here.",
+        "sla_compliance_percent": sla_compliance_percent,
+        "sla_compliance_by_stage": compliance_by_stage,
+        "note": "sla_compliance_percent covers only the 5 SLA stages wired to real actions "
+                "(Hiring request review, Resume review, Assignment sent, Reference completion, "
+                "Offer release) out of 13 named in the original document — the other 8 don't have "
+                "a single unambiguous action boundary in the current API and remain unwired rather "
+                "than guessed at. null means no clocks have completed yet.",
     }
 
 

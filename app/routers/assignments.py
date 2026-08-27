@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Assignment, AssignmentRepository, Candidate, get_db, User
 from app.auth import get_current_user, require_roles
+from app.sla import start_sla_clock
 from agents.assignment_scoring import compute_weighted_total
 
 router = APIRouter(prefix="/candidates/{candidate_id}/assignments", tags=["assignments"])
@@ -48,6 +49,7 @@ def send_assignment(
     repo_item.historical_usage_count = (repo_item.historical_usage_count or 0) + 1
     db.commit()
     db.refresh(assignment)
+    start_sla_clock(db, "candidate", candidate_id, "Assignment sent")
     return {"id": assignment.id, "candidate_id": candidate_id, "status": "Sent",
             "assignment_name": repo_item.assignment_name}
 
