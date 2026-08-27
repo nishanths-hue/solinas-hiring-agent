@@ -8,20 +8,23 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #14171C;
-    --surface: #1C2027;
-    --surface-raised: #232833;
-    --border: #2A2F38;
-    --text: #E8EAED;
-    --text-dim: #8B92A0;
-    --text-faint: #5A6070;
-    --amber: #E8A33D;
-    --amber-dim: #4A3A1E;
-    --red: #E85D4A;
-    --red-dim: #3D2420;
-    --green: #4FAE7C;
-    --green-dim: #1D3327;
-    --radius: 6px;
+    --bg: #F7F9F9;
+    --surface: #FFFFFF;
+    --surface-raised: #F1F5F4;
+    --border: #DCE3E1;
+    --text: #1E1E1E;
+    --text-dim: #5B6663;
+    --text-faint: #8A9490;
+    --amber: #37BAA1;
+    --amber-text: #237868;
+    --amber-dim: #E3F5F1;
+    --red: #B64B37;
+    --red-dim: #FBEEEA;
+    --green: #297D63;
+    --green-dim: #E3F2EC;
+    --radius: 8px;
+    --shadow-sm: 0 1px 2px rgba(30,30,30,0.06);
+    --shadow-md: 0 2px 10px rgba(30,30,30,0.08);
   }
   * { box-sizing: border-box; }
   body {
@@ -29,42 +32,43 @@
     background: var(--bg);
     color: var(--text);
     font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
   }
   .mono { font-family: 'IBM Plex Mono', monospace; }
-  a { color: inherit; }
+  a { color: var(--amber-text); }
   button {
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     border: 1px solid var(--border);
-    background: var(--surface-raised);
+    background: var(--surface);
     color: var(--text);
-    padding: 7px 14px;
+    padding: 10px 16px;
     border-radius: var(--radius);
     cursor: pointer;
+    box-shadow: var(--shadow-sm);
   }
-  button:hover { border-color: var(--text-faint); }
+  button:hover { border-color: var(--amber); }
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-    outline: 2px solid var(--amber);
+    outline: 2px solid var(--amber-text);
     outline-offset: 1px;
   }
   button.primary { background: var(--amber); color: #1A1508; border-color: var(--amber); font-weight: 600; }
-  button.primary:hover { filter: brightness(1.08); }
+  button.primary:hover { filter: brightness(1.06); border-color: var(--amber); }
   button.danger { background: var(--red-dim); color: var(--red); border-color: var(--red); }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   input, select, textarea {
     font-family: inherit;
-    font-size: 13px;
-    background: var(--bg);
+    font-size: 14px;
+    background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 7px 10px;
+    padding: 10px 13px;
     border-radius: var(--radius);
     width: 100%;
   }
-  label { display: block; font-size: 12px; color: var(--text-dim); margin: 10px 0 4px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text-dim); margin: 14px 0 6px; }
   .hidden { display: none !important; }
 
   /* ---- Login ---- */
@@ -73,13 +77,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    background: var(--bg);
   }
   .login-box {
-    width: 320px;
-    padding: 32px;
+    width: 360px;
+    padding: 40px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
   }
   .wordmark {
     font-family: 'IBM Plex Mono', monospace;
@@ -87,90 +93,95 @@
     font-size: 13px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--amber);
+    color: var(--amber-text);
     margin-bottom: 4px;
   }
-  .login-box h1 { font-size: 18px; margin: 0 0 20px; font-weight: 600; }
-  #login-error { color: var(--red); font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .wordmark-logo { height: 28px; display: block; margin-bottom: 6px; }
+  .login-box h1 { font-size: 20px; margin: 0 0 24px; font-weight: 600; }
+  #login-error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 18px; }
 
   /* ---- Shell ---- */
   #app-view { display: flex; height: 100vh; }
   #sidebar {
-    width: 200px;
+    width: 216px;
     flex-shrink: 0;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    padding: 20px 0;
+    padding: 24px 0;
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
   }
-  #sidebar .wordmark { padding: 0 20px; margin-bottom: 24px; }
+  #sidebar .wordmark { padding: 0 22px; margin-bottom: 28px; }
+  #sidebar .wordmark-logo { padding: 0 22px; margin-bottom: 28px; height: 24px; width: auto; }
   .nav-item {
-    padding: 9px 20px;
+    padding: 12px 22px;
     color: var(--text-dim);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
-    border-left: 2px solid transparent;
+    border-left: 3px solid transparent;
   }
-  .nav-item:hover { color: var(--text); }
-  .nav-item.active { color: var(--amber); border-left-color: var(--amber); background: var(--amber-dim); }
+  .nav-item:hover { color: var(--text); background: var(--surface-raised); }
+  .nav-item.active { color: var(--amber-text); border-left-color: var(--amber); background: var(--amber-dim); font-weight: 600; }
   #user-info {
     margin-top: auto;
-    padding: 14px 20px 0;
+    padding: 16px 22px 0;
     border-top: 1px solid var(--border);
-    font-size: 12px;
+    font-size: 13px;
   }
   #user-info .role-badge {
     display: inline-block;
-    margin-top: 4px;
-    padding: 2px 8px;
-    background: var(--surface-raised);
+    margin-top: 5px;
+    padding: 3px 10px;
+    background: var(--amber-dim);
     border-radius: 999px;
-    color: var(--amber);
+    color: var(--amber-text);
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    font-weight: 600;
   }
-  #logout-btn { margin-top: 10px; width: 100%; font-size: 12px; padding: 6px; }
+  #logout-btn { margin-top: 12px; width: 100%; font-size: 13px; padding: 8px; }
 
-  #main { flex: 1; overflow-y: auto; padding: 28px 36px; }
-  #main h2 { font-size: 20px; margin: 0 0 20px; font-weight: 600; }
-  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-  .panel h3 { font-size: 14px; margin: 0 0 14px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  #main { flex: 1; overflow-y: auto; padding: 32px 40px; }
+  #main h2 { font-size: 23px; margin: 0 0 24px; font-weight: 600; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
+  .panel h3 { font-size: 15px; margin: 0 0 16px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
 
   /* ---- Dashboard cards ---- */
-  .stat-row { display: flex; gap: 14px; margin-bottom: 20px; }
-  .stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
-  .stat-card .num { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; }
-  .stat-card .label { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+  .stat-row { display: flex; gap: 16px; margin-bottom: 22px; }
+  .stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 22px 24px; box-shadow: var(--shadow-sm); }
+  .stat-card .num { font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600; color: var(--amber-text); }
+  .stat-card .label { color: var(--text-dim); font-size: 13px; margin-top: 5px; }
 
-  .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .funnel-label { width: 130px; font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
-  .funnel-bar-track { flex: 1; height: 20px; background: var(--surface-raised); border-radius: 3px; overflow: hidden; }
+  .funnel-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .funnel-label { width: 140px; font-size: 13px; color: var(--text-dim); flex-shrink: 0; }
+  .funnel-bar-track { flex: 1; height: 22px; background: var(--surface-raised); border-radius: 4px; overflow: hidden; }
   .funnel-bar-fill { height: 100%; background: var(--amber); }
-  .funnel-count { width: 28px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .funnel-count { width: 30px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
 
-  .aging-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .aging-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
   .aging-row:last-child { border-bottom: none; }
-  .badge-days { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--red-dim); color: var(--red); }
+  .badge-days { font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--red-dim); color: var(--red); }
 
   /* ---- Tables ---- */
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; color: var(--text-dim); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  td { padding: 10px; border-bottom: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 13px 12px; border-bottom: 1px solid var(--border); }
   tr.clickable { cursor: pointer; }
   tr.clickable:hover td { background: var(--surface-raised); }
-  .priority-tag { font-size: 10px; font-family: 'IBM Plex Mono', monospace; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; }
+  .priority-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; font-weight: 600; }
   .priority-Critical { background: var(--red-dim); color: var(--red); }
-  .priority-High { background: var(--amber-dim); color: var(--amber); }
+  .priority-High { background: var(--amber-dim); color: var(--amber-text); }
   .priority-Medium { background: var(--surface-raised); color: var(--text-dim); }
 
   /* ---- Pipeline track (signature element) ---- */
-  .track { display: flex; align-items: center; gap: 2px; margin: 4px 0; }
+  .track { display: flex; align-items: center; gap: 2px; margin: 6px 0; }
   .track-node {
-    width: 9px; height: 9px; border-radius: 50%;
+    width: 10px; height: 10px; border-radius: 50%;
     background: var(--border);
     flex-shrink: 0;
   }
@@ -181,33 +192,34 @@
 
   /* ---- Detail drawer ---- */
   #drawer {
-    position: fixed; top: 0; right: 0; height: 100vh; width: 460px;
+    position: fixed; top: 0; right: 0; height: 100vh; width: 480px;
     background: var(--surface); border-left: 1px solid var(--border);
-    padding: 24px; overflow-y: auto;
+    padding: 28px; overflow-y: auto;
     transform: translateX(100%); transition: transform 0.18s ease;
     z-index: 10;
+    box-shadow: -4px 0 24px rgba(30,30,30,0.10);
   }
   #drawer.open { transform: translateX(0); }
   #drawer-close { float: right; }
-  #drawer h3 { margin-top: 0; }
-  .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 16px 0; }
-  .tab-btn { background: none; border: none; padding: 8px 4px; margin-right: 14px; color: var(--text-dim); font-weight: 500; border-bottom: 2px solid transparent; border-radius: 0; }
-  .tab-btn.active { color: var(--amber); border-bottom-color: var(--amber); }
+  #drawer h3 { margin-top: 0; font-size: 17px; }
+  .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 18px 0; flex-wrap: wrap; }
+  .tab-btn { background: none; border: none; box-shadow: none; padding: 10px 4px; margin-right: 16px; color: var(--text-dim); font-weight: 500; font-size: 14px; border-bottom: 2px solid transparent; border-radius: 0; }
+  .tab-btn.active { color: var(--amber-text); border-bottom-color: var(--amber); font-weight: 600; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  .field-row { display: flex; gap: 10px; }
+  .field-row { display: flex; gap: 12px; }
   .field-row > div { flex: 1; }
-  .form-actions { margin-top: 14px; display: flex; gap: 8px; }
-  .msg { font-size: 12px; margin-top: 8px; }
+  .form-actions { margin-top: 16px; display: flex; gap: 10px; }
+  .msg { font-size: 13px; margin-top: 10px; }
   .msg.ok { color: var(--green); }
   .msg.err { color: var(--red); }
 
-  .qa-block { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-top: 8px; }
-  .qa-block ul { margin: 6px 0 0; padding-left: 18px; }
-  .qa-block li { margin-bottom: 4px; font-size: 13px; }
+  .qa-block { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-top: 10px; }
+  .qa-block ul { margin: 8px 0 0; padding-left: 20px; }
+  .qa-block li { margin-bottom: 5px; font-size: 14px; }
 
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9; }
+  .overlay { position: fixed; inset: 0; background: rgba(30,30,30,0.35); z-index: 9; }
   ::-webkit-scrollbar { width: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 </style>
@@ -217,7 +229,7 @@
 <!-- LOGIN -->
 <div id="login-view">
   <div class="login-box">
-    <div class="wordmark">Solinas</div>
+    <img class="wordmark-logo" src="logo.png" alt="Solinas">
     <h1>Hiring console</h1>
     <label>Email</label>
     <input id="login-email" type="email" autocomplete="username">
@@ -233,7 +245,7 @@
 <!-- APP -->
 <div id="app-view" class="hidden">
   <div id="sidebar">
-    <div class="wordmark">Solinas</div>
+    <img class="wordmark-logo" src="logo.png" alt="Solinas">
     <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">Dashboard</div>
     <div class="nav-item" data-view="roles" onclick="showView('roles')">Roles</div>
     <div class="nav-item" data-view="candidates" onclick="showView('candidates')">Candidates</div>
@@ -579,7 +591,7 @@ async function createBulkUsers() {
         ${a.email} —
         ${a.email_sent
           ? '<span style="color:var(--green)">emailed ✓</span>'
-          : `<strong style="color:var(--amber)">${a.temporary_password}</strong> <span style="color:var(--red);font-size:11px">(not emailed — share this manually)</span>`}
+          : `<strong style="color:var(--amber-text)">${a.temporary_password}</strong> <span style="color:var(--red);font-size:11px">(not emailed — share this manually)</span>`}
       </div>
     `).join('')}</div>`;
     document.getElementById('bulk-user-input').value = '';
@@ -693,7 +705,7 @@ async function loadDashboard() {
     document.getElementById('ownership-content').innerHTML = Object.entries(ownership).map(([role, count]) => `
       <div class="aging-row">
         <span>${labels[role] || role}</span>
-        <span class="mono" style="color:${count > 0 ? 'var(--amber)' : 'var(--text-dim)'}">${count} pending</span>
+        <span class="mono" style="color:${count > 0 ? 'var(--amber-text)' : 'var(--text-dim)'}">${count} pending</span>
       </div>`).join('');
   } catch (e) { document.getElementById('ownership-content').textContent = 'Could not load ownership queue.'; }
 
@@ -707,7 +719,7 @@ async function loadDashboard() {
           <span class="mono" style="color:var(--text-faint);width:20px;display:inline-block">${i + 1}.</span>
           <span style="flex:1">${q.full_name} — ${q.stage}
             ${q.priority_override !== 'Normal' ? `<span class="priority-tag priority-${q.priority_override === 'Critical' ? 'Critical' : 'High'}">${q.priority_override}</span>` : ''}
-            ${q.needs_founder_review ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber)">Founder review</span>' : ''}
+            ${q.needs_founder_review ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber-text)">Founder review</span>' : ''}
           </span>
           <span class="mono">${q.priority_score}</span>
         </div>`).join('');
@@ -719,7 +731,7 @@ async function loadDashboard() {
     document.getElementById('activity-feed-content').innerHTML = feed.length ? feed.map(f => `
       <div class="aging-row" style="align-items:flex-start">
         <span style="flex:1;font-size:13px">
-          ${f.type === 'founder_review_pending' ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber);margin-right:6px">Founder review</span>' : ''}
+          ${f.type === 'founder_review_pending' ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber-text);margin-right:6px">Founder review</span>' : ''}
           ${f.description}
         </span>
         <span class="mono" style="color:var(--text-faint);font-size:11px;white-space:nowrap;margin-left:10px">
@@ -1153,7 +1165,7 @@ async function openCandidateDrawer(candidateId) {
       </div>
     ` : ''}
     <div style="padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
-      <label style="margin:0 0 4px">Stage: <span id="stage-current-label" class="mono" style="color:var(--amber)">${candidateStage}</span></label>
+      <label style="margin:0 0 4px">Stage: <span id="stage-current-label" class="mono" style="color:var(--amber-text)">${candidateStage}</span></label>
       <select id="stage-target">
         ${STAGE_ORDER.map(s => `<option value="${s}" ${s === candidateStage ? 'selected' : ''}>${s}</option>`).join('')}
         <option value="Rejected">Rejected</option>
@@ -1229,7 +1241,7 @@ async function loadJoiningRisk(candidateId) {
   const canEdit = ['leadership', 'recruitment'].includes(ROLE);
   try {
     const risk = await api(`/candidates/${candidateId}/joining-risk`);
-    const riskColor = risk.risk_level === 'High Risk' ? 'var(--red)' : risk.risk_level === 'Moderate Risk' ? 'var(--amber)' : 'var(--green)';
+    const riskColor = risk.risk_level === 'High Risk' ? 'var(--red)' : risk.risk_level === 'Moderate Risk' ? 'var(--amber-text)' : 'var(--green)';
     let html = `
       <div style="font-size:13px;margin-bottom:8px">
         Owner: ${risk.recruiter_owner || '—'} ·
