@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import Candidate, ActivityTimeline, ResumeScreeningResult, get_db, User
 from app.auth import get_current_user, require_roles
 from app.sla import start_sla_clock, complete_open_clock_for
+from app.ai_contract import wrap_ai_output
 from agents.resume_screening_agent import screen_candidate, parse_resume, structured_to_text
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
@@ -127,7 +128,7 @@ def run_screening(
     ))
     complete_open_clock_for(db, "candidate", candidate_id, "Resume review")
     db.commit()
-    return result
+    return wrap_ai_output(result, user.email)
 
 
 @router.get("/{candidate_id}")

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models import ReferenceCheck, Candidate, Interview, Role, get_db, User
 from app.auth import get_current_user, require_roles
 from app.sla import complete_open_clock_for
+from app.ai_contract import wrap_ai_output
 from agents.reference_check_agent import generate_reference_questions, summarize_reference_response
 
 router = APIRouter(prefix="/candidates/{candidate_id}/reference-checks", tags=["reference-checks"])
@@ -40,10 +41,11 @@ def get_reference_questions(
         if iv.concerns
     ]
 
-    return generate_reference_questions(
+    questions = generate_reference_questions(
         role.role_title if role else "Unknown Role",
         prior_concerns,
     )
+    return wrap_ai_output(questions, user.email)
 
 
 @router.post("", status_code=201)
@@ -83,14 +85,14 @@ def log_reference_check(
     db.refresh(ref_check)
     complete_open_clock_for(db, "candidate", candidate_id, "Reference completion")
 
-    return {
+    return wrap_ai_output({
         "id": ref_check.id, "candidate_id": candidate_id,
         "ai_summary": ref_check.ai_summary,
         "overall_outcome": ref_check.overall_outcome,
         "suggested_risk_level": ref_check.risk_level,
         "suggested_rehire_eligibility": ref_check.rehire_eligibility,
         "note": "risk_level and rehire_eligibility are AI-suggested, not final — human review required",
-    }
+    }, user.email)
 
 
 @router.get("")

@@ -7,6 +7,7 @@ from app.models import Role, get_db, User
 from app.auth import get_current_user, require_roles
 from app.permissions import filter_role_dict, can_edit
 from app.sla import start_sla_clock, complete_open_clock_for
+from app.ai_contract import wrap_ai_output
 from agents.jd_agent import generate_hiring_assets
 
 router = APIRouter(prefix="/roles", tags=["roles"])
@@ -82,7 +83,7 @@ def generate_jd(
     })
     role.jd = assets["internal_assets"]["job_description"]
     db.commit()
-    return assets
+    return wrap_ai_output(assets, user.email)
 
 
 @router.patch("/{role_id}/compensation")

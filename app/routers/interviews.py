@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Interview, Candidate, Role, ResumeScreeningResult, RecruiterScreeningNote, get_db, User
 from app.auth import get_current_user, require_roles
+from app.ai_contract import wrap_ai_output
 from agents.interview_briefing_agent import build_briefing
 
 router = APIRouter(prefix="/candidates/{candidate_id}/interviews", tags=["interviews"])
@@ -148,4 +149,4 @@ def get_briefing(
             for iv in prior_interviews
         ],
     )
-    return briefing
+    return wrap_ai_output(briefing, user.email)
