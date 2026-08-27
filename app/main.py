@@ -1,6 +1,19 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+import os
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from app.rate_limit import limiter
 from app.routers import auth, roles, candidates, dashboard, interviews, assignments, reference_checks, assignment_repository, candidate_lifecycle, role_requirements, compensation_benchmarks, templates_and_postings, recruiter_tools, duplicates_and_sources, candidate_views, interview_scheduling, internal
+
+# Rate limiting — in-memory, per-process. That's genuinely sufficient here:
+# this runs as a single Render free-tier instance, not multiple replicas
+# behind a load balancer, so there's no need for a shared store (Redis)
+# that a multi-instance deployment would require. If this ever moves to
+# multiple instances, in-memory limits would need to become
+# instance-specific (each replica tracks its own counts) — a real
+# limitation worth knowing about before scaling up, not a bug today.
 
 app = FastAPI(
     title="Solinas Hiring Management System",
@@ -8,6 +21,21 @@ app = FastAPI(
                 "humans decide and advance stages (Section 2 of the operating design doc).",
     version="0.9.0",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# Error monitoring — degrades to doing nothing if SENTRY_DSN isn't set,
+# same graceful-if-unconfigured pattern as the Resend email integration.
+# Sign up at sentry.io (free, no card, 5,000 errors/month) to get a DSN.
+sentry_dsn = os.environ.get("SENTRY_DSN")
+if sentry_dsn:
+    import sentry_sdk
+    sentry_sdk.init(dsn=sentry_dsn, traces_sample_rate=0.1, send_default_pii=False)
+    # send_default_pii=False deliberately — this app handles candidate PII
+    # (names, resumes, compensation) and reference/HR notes; Sentry should
+    # capture stack traces and error context, not accidentally forward
+    # sensitive request bodies to a third party by default.
 
 app.include_router(auth.router)
 app.include_router(roles.router)
