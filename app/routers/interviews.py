@@ -3,9 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.models import Interview, Candidate, Role, ResumeScreeningResult, RecruiterScreeningNote, get_db, User
+from app.models import Interview, Candidate, Role, ResumeScreeningResult, RecruiterScreeningNote, ScheduledInterview, get_db, User
 from app.auth import get_current_user, require_roles
 from app.ai_contract import wrap_ai_output
+from app.sla import complete_open_clock_for
 from agents.interview_briefing_agent import build_briefing
 
 router = APIRouter(prefix="/candidates/{candidate_id}/interviews", tags=["interviews"])
@@ -62,6 +63,29 @@ def submit_feedback(
     db.add(interview)
     db.commit()
     db.refresh(interview)
+
+    # Auto-link and close out the matching scheduled interview, if one
+    # exists — the most recent open Scheduled entry for this exact
+    # candidate+interviewer pair. Feedback submitted with no matching
+    # scheduled entry (e.g. an ad-hoc interview that was never formally
+    # scheduled through this system) is still accepted; linking is
+    # best-effort, not a requirement to submit feedback at all.
+    open_scheduled = (
+        db.query(ScheduledInterview)
+        .filter(
+            ScheduledInterview.candidate_id == candidate_id,
+            ScheduledInterview.interviewer_user_id == user.id,
+            ScheduledInterview.status == "Scheduled",
+        )
+        .order_by(ScheduledInterview.scheduled_at.desc())
+        .first()
+    )
+    if open_scheduled:
+        open_scheduled.status = "Completed"
+        open_scheduled.completed_interview_id = interview.id
+        complete_open_clock_for(db, "scheduled_interview", open_scheduled.id, "Feedback submission")
+        db.commit()
+
     return {
         "id": interview.id, "candidate_id": candidate_id,
         "interviewer_name": interview.interviewer_name,

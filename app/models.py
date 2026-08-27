@@ -150,6 +150,34 @@ class RecruiterTag(Base):
     applied_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ScheduledInterview(Base):
+    """
+    Phase G — Section 21's `schedule_interview` tool. Tracks an interview
+    as a real entity BEFORE feedback exists, not just after — the previous
+    build only ever captured feedback retroactively, with no record that
+    an interview was ever scheduled to begin with.
+
+    Known simplification: the "Feedback submission" SLA clock (24h, from
+    app/sla.py's SLA_HOURS) starts at SCHEDULING time here, not at the
+    interview's actual scheduled_at time. The document's intent is closer
+    to the latter, but there's no background scheduler in this app to
+    detect "the interview time has now passed" and start a clock
+    automatically — that would need a cron/worker process this system
+    doesn't have. Starting at scheduling time is the practical MVP; a true
+    fix is a real, separate follow-up (adding a scheduler), not something
+    to fake here.
+    """
+    __tablename__ = "scheduled_interviews"
+    id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"))
+    interviewer_user_id = Column(Integer, ForeignKey("users.id"))
+    scheduled_at = Column(DateTime, nullable=False)
+    status = Column(String, default="Scheduled")  # Scheduled | Completed | Cancelled | No-Show
+    created_by = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_interview_id = Column(Integer, ForeignKey("interviews.id"))  # linked once feedback is submitted
+
+
 class Interview(Base):
     __tablename__ = "interviews"
     id = Column(Integer, primary_key=True)

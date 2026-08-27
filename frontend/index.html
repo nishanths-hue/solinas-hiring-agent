@@ -1515,6 +1515,7 @@ function switchTab(name) {
 async function loadInterviewsTab(candidateId) {
   const el = document.getElementById('tab-interviews');
   const canSubmit = ['interviewer', 'hiring_manager'].includes(ROLE);
+  const canSchedule = ['recruitment', 'hiring_manager', 'leadership'].includes(ROLE);
   el.innerHTML = 'Loading…';
   try {
     const list = await api(`/candidates/${candidateId}/interviews`);
@@ -1531,8 +1532,20 @@ async function loadInterviewsTab(candidateId) {
         </div>`).join('') || '<p style="color:var(--text-dim)">No feedback yet.</p>'}
       <button style="margin-top:10px" onclick="loadBriefing(${candidateId})">Get pre-interview briefing</button>
       <div id="briefing-result" class="qa-block hidden"></div>
+      <h3 style="margin-top:18px">Scheduled interviews</h3>
+      <div id="scheduled-interviews-list">Loading…</div>
+      ${canSchedule ? `
+        <label style="margin-top:10px">Interviewer</label>
+        <select id="si-interviewer"><option value="">Loading…</option></select>
+        <label>Date &amp; time</label>
+        <input id="si-datetime" type="datetime-local">
+        <div class="form-actions"><button onclick="submitScheduleInterview(${candidateId})">Schedule</button></div>
+        <div id="si-msg" class="msg"></div>
+      ` : ''}
       ${canSubmit ? interviewFormHTML() : ''}
     `;
+    loadScheduledInterviews(candidateId);
+    if (canSchedule) loadInterviewerOptions();
   } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
 }
 
@@ -1552,6 +1565,58 @@ function interviewFormHTML() {
     <div class="form-actions"><button class="primary" onclick="submitInterview()">Submit</button></div>
     <div id="iv-msg" class="msg"></div>
   `;
+}
+
+async function loadScheduledInterviews(candidateId) {
+  const el = document.getElementById('scheduled-interviews-list');
+  try {
+    const list = await api(`/candidates/${candidateId}/scheduled-interviews`);
+    el.innerHTML = list.length ? list.map(s => {
+      const statusColor = s.status === 'Completed' ? 'var(--green)' : s.status === 'Cancelled' || s.status === 'No-Show' ? 'var(--red)' : 'var(--amber-text)';
+      return `
+        <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+          ${s.interviewer_name} — ${new Date(s.scheduled_at).toLocaleString()}
+          <span style="color:${statusColor};font-weight:600;margin-left:6px">${s.status}</span>
+          ${s.status === 'Scheduled' ? `
+            <button style="margin-left:8px;font-size:11px" onclick="updateScheduledStatus(${s.id}, 'Cancelled', ${candidateId})">Cancel</button>
+            <button style="margin-left:4px;font-size:11px" onclick="updateScheduledStatus(${s.id}, 'No-Show', ${candidateId})">No-show</button>
+          ` : ''}
+        </div>`;
+    }).join('') : '<span style="color:var(--text-dim);font-size:13px">Nothing scheduled yet.</span>';
+  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function loadInterviewerOptions() {
+  const sel = document.getElementById('si-interviewer');
+  if (!sel) return;
+  try {
+    const options = await api('/scheduled-interviews/interviewer-options');
+    sel.innerHTML = options.length
+      ? options.map(o => `<option value="${o.id}">${o.full_name} (${o.role})</option>`).join('')
+      : '<option value="">No interviewers available</option>';
+  } catch (e) { sel.innerHTML = `<option value="">${e.message}</option>`; }
+}
+
+async function submitScheduleInterview(candidateId) {
+  const msg = document.getElementById('si-msg');
+  const interviewerId = document.getElementById('si-interviewer').value;
+  const datetimeVal = document.getElementById('si-datetime').value;
+  if (!interviewerId || !datetimeVal) { msg.className = 'msg err'; msg.textContent = 'Pick an interviewer and a date/time.'; return; }
+  try {
+    await api(`/candidates/${candidateId}/scheduled-interviews`, {
+      method: 'POST',
+      body: JSON.stringify({ interviewer_user_id: parseInt(interviewerId), scheduled_at: new Date(datetimeVal).toISOString() }),
+    });
+    msg.className = 'msg ok'; msg.textContent = 'Interview scheduled.';
+    loadScheduledInterviews(candidateId);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function updateScheduledStatus(scheduledId, status, candidateId) {
+  try {
+    await api(`/scheduled-interviews/${scheduledId}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    loadScheduledInterviews(candidateId);
+  } catch (e) { alert(e.message); }
 }
 
 async function loadBriefing(candidateId) {
