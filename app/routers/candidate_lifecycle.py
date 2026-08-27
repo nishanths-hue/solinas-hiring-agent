@@ -150,8 +150,17 @@ def transition_candidate(
     # actions that happen to usually coincide but aren't the same event.
     if payload.to_stage == "Assignment Submitted":
         complete_open_clock_for(db, "candidate", candidate_id, "Assignment sent")
+    if payload.to_stage == "Final Evaluation":
+        start_sla_clock(db, "candidate", candidate_id, "Final evaluation decision")
     if payload.to_stage == "Reference Check":
-        start_sla_clock(db, "candidate", candidate_id, "Reference completion")
+        complete_open_clock_for(db, "candidate", candidate_id, "Final evaluation decision")
+        # "Reference initiation" (not "Reference completion") starts here —
+        # redesigned from the original simplification, which collapsed both
+        # named stages into one window starting at stage entry. Initiation
+        # now correctly ends when a recruiter actually generates reference
+        # questions (see reference_checks.py's get_reference_questions),
+        # which is when "Reference completion" starts in turn.
+        start_sla_clock(db, "candidate", candidate_id, "Reference initiation")
     if payload.to_stage == "Offer Discussion":
         start_sla_clock(db, "candidate", candidate_id, "Offer release")
     if payload.to_stage == "Offer Released":

@@ -119,7 +119,7 @@ def run_screening(
         "experience_range": role.experience_range,
     })
 
-    record = ResumeScreeningResult(candidate_id=candidate_id, role_id=role.id, **result)
+    record = ResumeScreeningResult(candidate_id=candidate_id, role_id=role.id, triggered_by=user.email, **result)
     db.add(record)
     candidate.stage = "Resume Review"
     db.add(ActivityTimeline(
@@ -127,6 +127,14 @@ def run_screening(
         stage_from="Applied", stage_to="Resume Review", actor="resume_screening_agent",
     ))
     complete_open_clock_for(db, "candidate", candidate_id, "Resume review")
+
+    # High-fit review — 70 is a judgment call, not a value from the
+    # document (it doesn't specify a threshold for "high fit"). Chosen as
+    # a reasonable floor for "worth a recruiter's focused look," not
+    # derived from any stated requirement.
+    if result.get("fit_score") is not None and result["fit_score"] >= 70:
+        start_sla_clock(db, "candidate", candidate_id, "High-fit review")
+
     db.commit()
     return wrap_ai_output(result, user.email)
 

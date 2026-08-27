@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models import ReferenceCheck, Candidate, Interview, Role, get_db, User
 from app.auth import get_current_user, require_roles
-from app.sla import complete_open_clock_for
+from app.sla import start_sla_clock, complete_open_clock_for
 from app.ai_contract import wrap_ai_output
 from agents.reference_check_agent import generate_reference_questions, summarize_reference_response
 
@@ -45,6 +45,8 @@ def get_reference_questions(
         role.role_title if role else "Unknown Role",
         prior_concerns,
     )
+    complete_open_clock_for(db, "candidate", candidate_id, "Reference initiation")
+    start_sla_clock(db, "candidate", candidate_id, "Reference completion")
     return wrap_ai_output(questions, user.email)
 
 
@@ -78,6 +80,7 @@ def log_reference_check(
         overall_outcome=ai_result.get("overall_outcome"),
         rehire_eligibility=ai_result.get("suggested_rehire_eligibility"),
         risk_level=ai_result.get("suggested_risk_level"),
+        ai_model_used=ai_result.get("model_used"),
         logged_by=user.full_name,
     )
     db.add(ref_check)

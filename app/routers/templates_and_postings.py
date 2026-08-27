@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models import HiringTemplate, RolePosting, Role, Candidate, get_db, User
 from app.auth import get_current_user, require_roles
+from app.sla import start_sla_clock, complete_open_clock_for
 
 router = APIRouter(tags=["templates-and-postings"])
 
@@ -85,6 +86,7 @@ def create_posting(
     db.add(posting)
     db.commit()
     db.refresh(posting)
+    start_sla_clock(db, "role_posting", posting.id, "Job posting activation")
     return {"id": posting.id, "role_id": role_id, "channel": posting.channel, "status": posting.status}
 
 
@@ -107,6 +109,7 @@ def update_posting_status(
     posting.updated_at = datetime.utcnow()
     if payload.status == "Posted" and not posting.posted_at:
         posting.posted_at = datetime.utcnow()
+        complete_open_clock_for(db, "role_posting", posting.id, "Job posting activation")
 
     db.commit()
     return {"id": posting.id, "status": posting.status}

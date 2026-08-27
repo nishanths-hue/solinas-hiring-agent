@@ -111,6 +111,9 @@ class ResumeScreeningResult(Base):
     suggested_priority = Column(String)
     score_explanation = Column(Text)
     model_used = Column(String)
+    triggered_by = Column(String)  # Phase (AI contract persistence) — who actually ran this screening,
+                                     # so viewing this record later (not just the live response at
+                                     # generation time) still shows who/when/which-model.
     parsing_status = Column(String)  # "rchilli_structured" | "rchilli_failed: ..." | "raw_text_only" —
                                        # lets a recruiter know whether this score used structured RChilli
                                        # data or degraded to raw text, since that's a real quality difference
@@ -269,8 +272,12 @@ class ReferenceCheck(Base):
     rehire_eligibility = Column(String)
     risk_level = Column(String)  # Low | Medium | High
     ai_summary = Column(Text)
+    ai_model_used = Column(String)  # Phase (AI contract persistence) — the actual model that
+                                      # generated ai_summary/risk_level/rehire_eligibility, so
+                                      # this is knowable later, not just in the live response.
     completed_at = Column(DateTime, default=datetime.utcnow)
-    logged_by = Column(String)
+    logged_by = Column(String)  # the human who logged this reference check — distinct from
+                                  # ai_model_used, which records what generated the AI summary
 
 
 class JoiningRiskTracker(Base):

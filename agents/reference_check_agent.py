@@ -88,7 +88,9 @@ Return this JSON schema:
     )
     text = resp.content[0].text.strip()
     text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    return json.loads(text)
+    result = json.loads(text)
+    result["model_used"] = MODEL
+    return result
 
 
 if __name__ == "__main__":

@@ -83,6 +83,7 @@ def generate_jd(
     })
     role.jd = assets["internal_assets"]["job_description"]
     db.commit()
+    start_sla_clock(db, "role", role_id, "JD refinement")
     return wrap_ai_output(assets, user.email)
 
 
@@ -152,5 +153,7 @@ def transition_role(
     role.stage = payload.to_stage
     if payload.to_stage == "Approved":
         complete_open_clock_for(db, "role", role_id, "Hiring request review")
+    if payload.to_stage == "Live Hiring":
+        complete_open_clock_for(db, "role", role_id, "JD refinement")
     db.commit()
     return {"role_id": role_id, "from_stage": from_stage, "to_stage": payload.to_stage}

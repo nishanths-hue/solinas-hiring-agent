@@ -9,6 +9,7 @@ from app.models import (
     ResumeScreeningResult, get_db, User,
 )
 from app.auth import get_current_user, require_roles
+from app.sla import complete_open_clock_for
 from app.permissions import filter_recruiter_note_dict
 from app.sla import ROLE_AGING_DAYS
 
@@ -57,6 +58,7 @@ def create_screening_note(
     db.add(note)
     db.commit()
     db.refresh(note)
+    complete_open_clock_for(db, "candidate", candidate_id, "High-fit review")
     return {"id": note.id, "candidate_id": candidate_id, "status": note.status}
 
 

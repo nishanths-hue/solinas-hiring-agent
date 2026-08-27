@@ -48,11 +48,25 @@ ROLE_AGING_DAYS = {"Critical": 15, "High": 30, "Medium": 45}
 SLA_STAGE_OWNER_ROLES = {
     "Hiring request review": ["leadership", "recruitment"],
     "Resume review": ["recruitment"],
+    "JD refinement": ["recruitment", "leadership"],
+    "Job posting activation": ["recruitment"],
+    "High-fit review": ["recruitment"],
     "Assignment sent": ["recruitment"],
+    "Assignment review": ["hiring_manager"],
+    "Final evaluation decision": ["hiring_manager"],
+    "Reference initiation": ["recruitment"],
     "Reference completion": ["recruitment"],
     "Offer release": ["leadership", "recruitment"],
     "Feedback submission": [],  # handled specially below — scheduled_interview
                                   # clocks have a real named interviewer, not a role type
+    # "Offer approval" (the 13th named SLA stage) is deliberately never
+    # wired anywhere via start_sla_clock — its window (Offer Discussion
+    # through the offer actually being released) is identical to what
+    # "Offer release" already covers. Wiring both to the same real event
+    # would double-count one action under two names and send two
+    # redundant reminder emails for the same breach. Left unwired
+    # honestly rather than inventing an artificial distinction the
+    # document doesn't actually draw between "approval" and "release."
 }
 
 

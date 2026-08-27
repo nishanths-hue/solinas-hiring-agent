@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Assignment, AssignmentRepository, Candidate, get_db, User
 from app.auth import get_current_user, require_roles
-from app.sla import start_sla_clock
+from app.sla import start_sla_clock, complete_open_clock_for
 from app.ai_contract import wrap_ai_output
 from agents.assignment_scoring import compute_weighted_total
 
@@ -120,6 +120,7 @@ def mark_submitted(
     assignment.submitted_at = datetime.utcnow()
     assignment.status = "Submitted"
     db.commit()
+    start_sla_clock(db, "assignment", assignment.id, "Assignment review")
     return {"id": assignment.id, "status": "Submitted"}
 
 
@@ -153,6 +154,7 @@ def score_assignment(
     assignment.status = "Scored"
     assignment.scored_by = user.full_name
     db.commit()
+    complete_open_clock_for(db, "assignment", assignment.id, "Assignment review")
 
     return {
         "id": assignment.id, "status": "Scored",

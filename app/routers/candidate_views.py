@@ -161,7 +161,7 @@ def natural_language_search(q: str, db: Session = Depends(get_db), user: User = 
 
     filter_spec = interpret_search_query(q)
 
-    candidates = db.query(Candidate).filter(Candidate.status == "Active").all()
+    candidates = db.query(Candidate).all()
     now = datetime.now(timezone.utc)
     results = []
 
