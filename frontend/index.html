@@ -1412,6 +1412,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'overview') loadOverviewTab(CURRENT_CANDIDATE_ID);
+  if (name === 'interviews') loadInterviewsTab(CURRENT_CANDIDATE_ID);
   if (name === 'assignments') loadAssignmentsTab(CURRENT_CANDIDATE_ID);
   if (name === 'references') loadReferencesTab(CURRENT_CANDIDATE_ID);
   if (name === 'notes') loadNotesTab(CURRENT_CANDIDATE_ID);
