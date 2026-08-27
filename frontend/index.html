@@ -237,7 +237,6 @@
     <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">Dashboard</div>
     <div class="nav-item" data-view="roles" onclick="showView('roles')">Roles</div>
     <div class="nav-item" data-view="candidates" onclick="showView('candidates')">Candidates</div>
-    <div class="nav-item" data-view="admin" id="nav-admin" onclick="showView('admin')">Admin</div>
     <div id="user-info">
       <div id="user-name"></div>
       <div id="user-role" class="role-badge"></div>
@@ -258,18 +257,6 @@
         <h3>Roles aging past priority threshold</h3>
         <div id="aging-content">Loading…</div>
       </div>
-      <div class="panel">
-        <h3>Ownership queue — pending actions by role</h3>
-        <div id="ownership-content">Loading…</div>
-      </div>
-      <div class="panel">
-        <h3>Priority queue — not FIFO, highest score first</h3>
-        <div id="priority-queue-content">Loading…</div>
-      </div>
-      <div class="panel">
-        <h3>Activity feed</h3>
-        <div id="activity-feed-content">Loading…</div>
-      </div>
     </div>
 
     <!-- ROLES -->
@@ -286,99 +273,15 @@
 
     <!-- CANDIDATES -->
     <div id="view-candidates" class="view hidden">
-      <h2>Candidates
-        <button class="primary" style="float:right" id="new-candidate-btn" onclick="openNewCandidateForm()">+ New candidate</button>
-      </h2>
+      <h2>Candidates</h2>
       <div class="panel">
-        <label>Status</label>
-        <select id="candidate-status-filter" onchange="loadCandidatesForRole()">
-          <option value="active">Active</option>
-          <option value="hold">Hold for Future</option>
-          <option value="archived">Archived</option>
-        </select>
-        <label style="margin-top:12px">Filter by role (Active only)</label>
+        <label>Filter by role</label>
         <select id="candidate-role-filter" onchange="loadCandidatesForRole()"></select>
-        <label style="margin-top:12px">Search (skills, resume text, tags, source)</label>
-        <div style="display:flex;gap:8px">
-          <input id="candidate-search-input" placeholder='e.g. "PLC SCADA"' onkeydown="if(event.key==='Enter') runCandidateSearch()">
-          <button onclick="runCandidateSearch()">Search</button>
-          <button onclick="clearCandidateSearch()">Clear</button>
-        </div>
       </div>
       <div class="panel" style="overflow-x:auto">
-        <table id="candidates-table"><thead id="candidates-thead"><tr>
+        <table id="candidates-table"><thead><tr>
           <th>Name</th><th>Stage</th><th>Fit score</th><th>Interviews</th>
         </tr></thead><tbody></tbody></table>
-      </div>
-    </div>
-
-    <!-- ADMIN -->
-    <div id="view-admin" class="view hidden">
-      <h2>Admin</h2>
-      <div class="tab-bar">
-        <button class="tab-btn active" data-admintab="benchmarks" onclick="switchAdminTab('benchmarks')">Compensation Benchmarks</button>
-        <button class="tab-btn" data-admintab="templates" onclick="switchAdminTab('templates')">Hiring Templates</button>
-        <button class="tab-btn" data-admintab="users" onclick="switchAdminTab('users')">Users</button>
-      </div>
-      <div id="admintab-benchmarks" class="tab-panel active">
-        <div class="panel">
-          <h3>New benchmark</h3>
-          <label>Role category</label><input id="bm-category" placeholder="e.g. Automation Engineer">
-          <label>Experience range</label><input id="bm-exp" placeholder="e.g. 2-4 yrs">
-          <div class="field-row">
-            <div><label>Market band min</label><input id="bm-min" type="number"></div>
-            <div><label>Market band max</label><input id="bm-max" type="number"></div>
-          </div>
-          <label>Currency</label><input id="bm-currency" value="INR">
-          <div class="form-actions"><button class="primary" onclick="createBenchmark()">Add benchmark</button></div>
-          <div id="bm-msg" class="msg"></div>
-        </div>
-        <div class="panel" style="overflow-x:auto">
-          <table><thead><tr><th>Role category</th><th>Experience</th><th>Band</th><th>Updated</th></tr></thead>
-            <tbody id="benchmarks-tbody"></tbody></table>
-        </div>
-      </div>
-      <div id="admintab-templates" class="tab-panel">
-        <div class="panel">
-          <h3>New template</h3>
-          <label>Template type</label>
-          <select id="tpl-type">
-            <option>Technical Hiring</option><option>Site Engineering</option>
-            <option>Sales Hiring</option><option>Urgent Hiring</option>
-          </select>
-          <label>Template name</label><input id="tpl-name">
-          <label>Content</label><textarea id="tpl-content" rows="4" placeholder="Boilerplate content with placeholders"></textarea>
-          <div class="form-actions"><button class="primary" onclick="createTemplate()">Add template</button></div>
-          <div id="tpl-msg" class="msg"></div>
-        </div>
-        <div class="panel" id="templates-list">Loading…</div>
-      </div>
-      <div id="admintab-users" class="tab-panel">
-        <div class="panel">
-          <h3>Create user</h3>
-          <label>Email</label><input id="user-email" type="email">
-          <label>Full name</label><input id="user-fullname">
-          <label>Password</label><input id="user-password" type="password" placeholder="They can log in with this — share it securely">
-          <label>Role</label>
-          <select id="new-user-role-select"></select>
-          <div class="form-actions"><button class="primary" onclick="createSingleUser()">Create</button></div>
-          <div id="user-create-msg" class="msg"></div>
-        </div>
-        <div class="panel">
-          <h3>Bulk create</h3>
-          <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">
-            One person per line: <span class="mono">email, full name, role</span>.
-            Passwords are auto-generated — the whole batch fails together if any email already exists.
-          </div>
-          <textarea id="bulk-user-input" rows="4" placeholder="jane@solinas.in, Jane Doe, interviewer&#10;raj@solinas.in, Raj Kumar, hiring_manager"></textarea>
-          <div class="form-actions"><button onclick="createBulkUsers()">Create batch</button></div>
-          <div id="bulk-create-msg" class="msg"></div>
-          <div id="bulk-create-results"></div>
-        </div>
-        <div class="panel" style="overflow-x:auto">
-          <table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th></th></tr></thead>
-            <tbody id="users-tbody"></tbody></table>
-        </div>
       </div>
     </div>
   </div>
@@ -411,10 +314,7 @@ function decodeJWT(token) {
 async function api(path, options = {}) {
   const headers = options.headers || {};
   if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
-  // FormData needs the browser to set its own Content-Type (with a multipart
-  // boundary it generates) — setting it manually breaks the upload silently,
-  // since the boundary parameter would be missing.
-  if (options.body && !(options.body instanceof URLSearchParams) && !(options.body instanceof FormData)) {
+  if (options.body && !(options.body instanceof URLSearchParams)) {
     headers['Content-Type'] = 'application/json';
   }
   const resp = await fetch(API + path, { ...options, headers });
@@ -460,10 +360,6 @@ function initSession() {
   document.getElementById('app-view').classList.remove('hidden');
   document.getElementById('new-role-btn').style.display =
     ['leadership', 'recruitment', 'hiring_manager'].includes(ROLE) ? '' : 'none';
-  document.getElementById('new-candidate-btn').style.display =
-    ['leadership', 'recruitment'].includes(ROLE) ? '' : 'none';
-  document.getElementById('nav-admin').style.display =
-    ['leadership', 'recruitment'].includes(ROLE) ? '' : 'none';
   showView('dashboard');
 }
 
@@ -477,154 +373,6 @@ function showView(name) {
   if (name === 'dashboard') loadDashboard();
   if (name === 'roles') loadRoles();
   if (name === 'candidates') loadRoleFilterOptions();
-  if (name === 'admin') loadAdminData();
-}
-
-function switchAdminTab(name) {
-  document.querySelectorAll('[data-admintab]').forEach(b => b.classList.toggle('active', b.dataset.admintab === name));
-  document.querySelectorAll('#view-admin .tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('admintab-' + name).classList.add('active');
-}
-
-async function loadAdminData() {
-  try {
-    const benchmarks = await api('/compensation-benchmarks');
-    document.getElementById('benchmarks-tbody').innerHTML = benchmarks.length ? benchmarks.map(b => `
-      <tr><td>${b.role_category}</td><td>${b.experience_range || '—'}</td>
-        <td class="mono">${b.currency} ${b.typical_market_band_min ?? '?'}–${b.typical_market_band_max ?? '?'}</td>
-        <td style="font-size:11px;color:var(--text-dim)">${b.last_updated_by || '—'}</td></tr>
-    `).join('') : '<tr><td colspan="4" style="color:var(--text-dim)">No benchmarks yet.</td></tr>';
-  } catch (e) {
-    // Restricted to leadership/recruitment server-side — a hiring_manager or
-    // interviewer somehow reaching this tab (shouldn't happen, nav is gated)
-    // sees the real 403 rather than a silently empty table.
-    document.getElementById('benchmarks-tbody').innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`;
-  }
-
-  try {
-    const templates = await api('/hiring-templates');
-    document.getElementById('templates-list').innerHTML = templates.length ? templates.map(t => `
-      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <span class="priority-tag priority-High">${t.template_type}</span> <strong>${t.template_name}</strong><br>
-        <span style="color:var(--text-dim);font-size:12px">${(t.template_content || '').slice(0, 150)}${t.template_content && t.template_content.length > 150 ? '…' : ''}</span>
-      </div>`).join('') : '<span style="color:var(--text-dim)">No templates yet.</span>';
-  } catch (e) { document.getElementById('templates-list').innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
-
-  // Role options depend on WHO is logged in — leadership sees all four,
-  // recruitment only sees the two it's actually allowed to create
-  // (app/routers/auth.py's RECRUITMENT_CREATABLE_ROLES). Enforced
-  // server-side regardless; this just avoids offering a choice that would
-  // just come back as a 403.
-  const creatableRoles = ROLE === 'leadership'
-    ? ['leadership', 'recruitment', 'hiring_manager', 'interviewer']
-    : ['hiring_manager', 'interviewer'];
-  document.getElementById('new-user-role-select').innerHTML = creatableRoles.map(r => `<option value="${r}">${r}</option>`).join('');
-
-  loadUsersList();
-}
-
-async function loadUsersList() {
-  const tbody = document.getElementById('users-tbody');
-  try {
-    const users = await api('/auth/users');
-    tbody.innerHTML = users.map(u => `
-      <tr>
-        <td>${u.email}</td><td>${u.full_name}</td>
-        <td><span class="priority-tag priority-High">${u.role}</span></td>
-        <td>${ROLE === 'leadership' ? `<button style="font-size:11px" onclick="resetUserPassword(${u.id}, '${u.email}')">Reset password</button>` : ''}</td>
-      </tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim)">No users found.</td></tr>';
-  } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
-}
-
-async function createSingleUser() {
-  const msg = document.getElementById('user-create-msg');
-  const email = document.getElementById('user-email').value.trim();
-  const fullName = document.getElementById('user-fullname').value.trim();
-  const password = document.getElementById('user-password').value;
-  const role = document.getElementById('new-user-role-select').value;
-  if (!email || !fullName || !password) { msg.className = 'msg err'; msg.textContent = 'All fields are required.'; return; }
-  try {
-    await api('/auth/users', { method: 'POST', body: JSON.stringify({ email, full_name: fullName, password, role }) });
-    msg.className = 'msg ok'; msg.textContent = `Created ${email} as ${role}.`;
-    document.getElementById('user-email').value = '';
-    document.getElementById('user-fullname').value = '';
-    document.getElementById('user-password').value = '';
-    loadUsersList();
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-}
-
-async function createBulkUsers() {
-  const msg = document.getElementById('bulk-create-msg');
-  const resultsEl = document.getElementById('bulk-create-results');
-  const raw = document.getElementById('bulk-user-input').value.trim();
-  if (!raw) { msg.className = 'msg err'; msg.textContent = 'Enter at least one person.'; return; }
-
-  const entries = raw.split('\n').filter(l => l.trim()).map(line => {
-    const [email, full_name, role] = line.split(',').map(s => s.trim());
-    return { email, full_name, role };
-  });
-  const invalid = entries.find(e => !e.email || !e.full_name || !e.role);
-  if (invalid) { msg.className = 'msg err'; msg.textContent = 'Every line needs email, full name, and role — check your formatting.'; return; }
-
-  try {
-    msg.className = 'msg'; msg.textContent = 'Creating…';
-    const result = await api('/auth/users/bulk', { method: 'POST', body: JSON.stringify(entries) });
-    msg.className = 'msg ok'; msg.textContent = `Created ${result.created_count} accounts. Passwords shown below — copy them now, they can't be retrieved again.`;
-    resultsEl.innerHTML = `<div class="qa-block">${result.accounts.map(a => `
-      <div style="font-family:monospace;font-size:12px;margin-bottom:4px">${a.email} — <strong style="color:var(--amber)">${a.temporary_password}</strong></div>
-    `).join('')}</div>`;
-    document.getElementById('bulk-user-input').value = '';
-    loadUsersList();
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-}
-
-async function resetUserPassword(userId, email) {
-  if (!confirm(`Reset password for ${email}? Their current password stops working immediately.`)) return;
-  try {
-    const result = await api(`/auth/users/${userId}/reset-password`, { method: 'POST' });
-    alert(`New password for ${email}:\n\n${result.temporary_password}\n\nCopy this now — it can't be shown again.`);
-  } catch (e) { alert(e.message); }
-}
-
-async function createBenchmark() {
-  const msg = document.getElementById('bm-msg');
-  const category = document.getElementById('bm-category').value.trim();
-  if (!category) { msg.className = 'msg err'; msg.textContent = 'Role category is required.'; return; }
-  try {
-    const payload = {
-      role_category: category,
-      experience_range: document.getElementById('bm-exp').value || null,
-      typical_market_band_min: parseFloat(document.getElementById('bm-min').value) || null,
-      typical_market_band_max: parseFloat(document.getElementById('bm-max').value) || null,
-      currency: document.getElementById('bm-currency').value || 'INR',
-    };
-    await api('/compensation-benchmarks', { method: 'POST', body: JSON.stringify(payload) });
-    msg.className = 'msg ok'; msg.textContent = 'Benchmark added.';
-    document.getElementById('bm-category').value = '';
-    document.getElementById('bm-exp').value = '';
-    document.getElementById('bm-min').value = '';
-    document.getElementById('bm-max').value = '';
-    loadAdminData();
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-}
-
-async function createTemplate() {
-  const msg = document.getElementById('tpl-msg');
-  const name = document.getElementById('tpl-name').value.trim();
-  const content = document.getElementById('tpl-content').value.trim();
-  if (!name || !content) { msg.className = 'msg err'; msg.textContent = 'Name and content are both required.'; return; }
-  try {
-    const payload = {
-      template_type: document.getElementById('tpl-type').value,
-      template_name: name,
-      template_content: content,
-    };
-    await api('/hiring-templates', { method: 'POST', body: JSON.stringify(payload) });
-    msg.className = 'msg ok'; msg.textContent = 'Template added.';
-    document.getElementById('tpl-name').value = '';
-    document.getElementById('tpl-content').value = '';
-    loadAdminData();
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
 }
 
 function closeDrawer() {
@@ -673,47 +421,6 @@ async function loadDashboard() {
         </div>`).join('');
     }
   } catch (e) { document.getElementById('aging-content').textContent = 'Could not load aging roles.'; }
-
-  try {
-    const ownership = await api('/dashboard/ownership-queue');
-    const labels = { recruitment: 'Recruitment', hiring_manager: 'Hiring Manager', interviewer: 'Interviewer', leadership: 'Leadership' };
-    document.getElementById('ownership-content').innerHTML = Object.entries(ownership).map(([role, count]) => `
-      <div class="aging-row">
-        <span>${labels[role] || role}</span>
-        <span class="mono" style="color:${count > 0 ? 'var(--amber)' : 'var(--text-dim)'}">${count} pending</span>
-      </div>`).join('');
-  } catch (e) { document.getElementById('ownership-content').textContent = 'Could not load ownership queue.'; }
-
-  try {
-    const queue = await api('/candidates/queue/priority');
-    if (queue.length === 0) {
-      document.getElementById('priority-queue-content').innerHTML = '<span style="color:var(--text-dim)">No active candidates.</span>';
-    } else {
-      document.getElementById('priority-queue-content').innerHTML = queue.slice(0, 10).map((q, i) => `
-        <div class="aging-row">
-          <span class="mono" style="color:var(--text-faint);width:20px;display:inline-block">${i + 1}.</span>
-          <span style="flex:1">${q.full_name} — ${q.stage}
-            ${q.priority_override !== 'Normal' ? `<span class="priority-tag priority-${q.priority_override === 'Critical' ? 'Critical' : 'High'}">${q.priority_override}</span>` : ''}
-            ${q.needs_founder_review ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber)">Founder review</span>' : ''}
-          </span>
-          <span class="mono">${q.priority_score}</span>
-        </div>`).join('');
-    }
-  } catch (e) { document.getElementById('priority-queue-content').textContent = 'Could not load priority queue.'; }
-
-  try {
-    const feed = await api('/dashboard/activity-feed?limit=15');
-    document.getElementById('activity-feed-content').innerHTML = feed.length ? feed.map(f => `
-      <div class="aging-row" style="align-items:flex-start">
-        <span style="flex:1;font-size:13px">
-          ${f.type === 'founder_review_pending' ? '<span class="badge-days" style="background:var(--amber-dim);color:var(--amber);margin-right:6px">Founder review</span>' : ''}
-          ${f.description}
-        </span>
-        <span class="mono" style="color:var(--text-faint);font-size:11px;white-space:nowrap;margin-left:10px">
-          ${f.occurred_at ? new Date(f.occurred_at).toLocaleString() : ''}
-        </span>
-      </div>`).join('') : '<span style="color:var(--text-dim)">No recent activity.</span>';
-  } catch (e) { document.getElementById('activity-feed-content').textContent = 'Could not load activity feed.'; }
 }
 
 // ---------- roles ----------
@@ -791,9 +498,6 @@ async function openRoleDrawer(roleId) {
   try {
     const pipeline = await api(`/dashboard/roles/${roleId}/pipeline`);
     const canGenJD = ['leadership', 'recruitment'].includes(ROLE);
-    const canEditReqs = ['leadership', 'recruitment', 'hiring_manager'].includes(ROLE);
-    const canManagePostings = ['leadership', 'recruitment'].includes(ROLE);
-
     content.innerHTML = `
       <h3>${pipeline.role_title}</h3>
       ${canGenJD ? `<button onclick="generateJD(${roleId})">Generate JD</button>` : ''}
@@ -808,117 +512,8 @@ async function openRoleDrawer(roleId) {
             </span>
           </div>`).join('')
       }
-      ${canEditReqs ? `
-        <h3 style="margin-top:20px">Edit requirements
-          <button style="float:right;font-size:11px" onclick="loadRequirementHistory(${roleId})">History</button>
-        </h3>
-        <div id="req-history" class="qa-block hidden"></div>
-        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">
-          Only filled-in fields are updated. Some fields require a specific role to edit
-          (e.g. compensation is recruitment/leadership only) — the backend enforces this,
-          you'll see the exact reason if a field is blocked.
-        </div>
-        <label>Mandatory skills (comma-separated)</label><input id="req-mandatory-skills" placeholder="leave blank to skip">
-        <label>Nice-to-have skills (comma-separated)</label><input id="req-nice-skills" placeholder="leave blank to skip">
-        <label>Hiring priority</label>
-        <select id="req-priority"><option value="">— no change —</option><option>Critical</option><option>High</option><option>Medium</option></select>
-        <label>Compensation range</label><input id="req-comp" placeholder="e.g. 20-25 LPA">
-        <label>Hiring notes</label><textarea id="req-notes" rows="2"></textarea>
-        <div class="form-actions"><button class="primary" onclick="submitRequirementUpdate(${roleId})">Save changes</button></div>
-        <div id="req-msg" class="msg"></div>
-      ` : ''}
-      ${canManagePostings ? `
-        <h3 style="margin-top:20px">Postings</h3>
-        <div id="postings-list">Loading…</div>
-        <label style="margin-top:10px">Add posting channel</label>
-        <input id="new-posting-channel" placeholder="e.g. LinkedIn, Naukri">
-        <div class="form-actions"><button onclick="createPosting(${roleId})">Add</button></div>
-        <div id="posting-msg" class="msg"></div>
-      ` : ''}
     `;
-    if (canManagePostings) loadPostings(roleId);
   } catch (e) { content.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
-}
-
-async function loadRequirementHistory(roleId) {
-  const el = document.getElementById('req-history');
-  el.classList.remove('hidden');
-  el.textContent = 'Loading…';
-  try {
-    const history = await api(`/roles/${roleId}/requirements/history`);
-    el.innerHTML = history.length ? history.map(h => `
-      <div style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">
-        <strong>${h.field_name}</strong>: ${h.previous_value ?? '—'} → ${h.new_value ?? '—'}<br>
-        <span style="color:var(--text-dim)">${h.updated_by} · ${new Date(h.updated_at).toLocaleString()}</span>
-      </div>`).join('') : '<span style="color:var(--text-dim)">No edits logged yet.</span>';
-  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
-}
-
-async function submitRequirementUpdate(roleId) {
-  const msg = document.getElementById('req-msg');
-  const payload = {};
-  const skills = document.getElementById('req-mandatory-skills').value.trim();
-  const niceSkills = document.getElementById('req-nice-skills').value.trim();
-  const priority = document.getElementById('req-priority').value;
-  const comp = document.getElementById('req-comp').value.trim();
-  const notes = document.getElementById('req-notes').value.trim();
-
-  if (skills) payload.mandatory_skills = skills.split(',').map(s => s.trim()).filter(Boolean);
-  if (niceSkills) payload.nice_to_have_skills = niceSkills.split(',').map(s => s.trim()).filter(Boolean);
-  if (priority) payload.hiring_priority = priority;
-  if (comp) payload.compensation_range = comp;
-  if (notes) payload.hiring_notes = notes;
-
-  if (Object.keys(payload).length === 0) {
-    msg.className = 'msg err'; msg.textContent = 'Fill in at least one field to update.';
-    return;
-  }
-
-  try {
-    msg.className = 'msg'; msg.textContent = 'Saving…';
-    const result = await api(`/roles/${roleId}/requirements`, { method: 'PATCH', body: JSON.stringify(payload) });
-    msg.className = 'msg ok';
-    msg.textContent = `Updated: ${result.fields_changed.join(', ') || 'no actual changes (values matched existing)'}`;
-  } catch (e) {
-    // Real backend errors — e.g. "Role 'hiring_manager' is not permitted to
-    // edit: ['compensation_range']" — shown exactly, not paraphrased.
-    msg.className = 'msg err'; msg.textContent = e.message;
-  }
-}
-
-async function loadPostings(roleId) {
-  const el = document.getElementById('postings-list');
-  try {
-    const postings = await api(`/roles/${roleId}/postings`);
-    el.innerHTML = postings.length ? postings.map(p => `
-      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <strong>${p.channel}</strong> — ${p.status} · inflow: ${p.candidate_inflow}
-        <select id="posting-status-${p.id}" style="width:auto;display:inline-block;margin-left:8px">
-          ${['Generated','Under Review','Approved','Posted','Paused','Closed'].map(s => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}
-        </select>
-        <button style="margin-left:4px" onclick="updatePostingStatus(${roleId}, ${p.id})">Update</button>
-      </div>`).join('') : '<span style="color:var(--text-dim);font-size:13px">No postings yet.</span>';
-  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
-}
-
-async function createPosting(roleId) {
-  const msg = document.getElementById('posting-msg');
-  const channel = document.getElementById('new-posting-channel').value.trim();
-  if (!channel) { msg.className = 'msg err'; msg.textContent = 'Enter a channel name.'; return; }
-  try {
-    await api(`/roles/${roleId}/postings`, { method: 'POST', body: JSON.stringify({ channel }) });
-    document.getElementById('new-posting-channel').value = '';
-    msg.className = 'msg ok'; msg.textContent = 'Posting created (status: Generated).';
-    loadPostings(roleId);
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-}
-
-async function updatePostingStatus(roleId, postingId) {
-  const status = document.getElementById(`posting-status-${postingId}`).value;
-  try {
-    await api(`/postings/${postingId}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    loadPostings(roleId);
-  } catch (e) { alert(e.message); }
 }
 
 async function generateJD(roleId) {
@@ -941,481 +536,52 @@ async function loadRoleFilterOptions() {
   } catch (e) { sel.innerHTML = `<option>Could not load roles</option>`; }
 }
 
-async function runCandidateSearch() {
-  const q = document.getElementById('candidate-search-input').value.trim();
-  const thead = document.getElementById('candidates-thead');
+async function loadCandidatesForRole() {
+  const roleId = document.getElementById('candidate-role-filter').value;
   const tbody = document.querySelector('#candidates-table tbody');
-  if (!q) return;
-  thead.innerHTML = '<th>Name</th><th>Stage</th><th colspan="2">Match</th>';
-  tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Searching…</td></tr>`;
+  if (!roleId) { tbody.innerHTML = ''; return; }
+  tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Loading…</td></tr>`;
   try {
-    const results = await api(`/candidates/search/query?q=${encodeURIComponent(q)}`);
-    if (results.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">No matches for "${q}".</td></tr>`;
+    const pipeline = await api(`/dashboard/roles/${roleId}/pipeline`);
+    if (pipeline.candidates.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">No candidates for this role yet.</td></tr>`;
       return;
     }
-    tbody.innerHTML = results.map(r => `
-      <tr class="clickable" onclick="openCandidateDrawer(${r.candidate_id})">
-        <td>${r.full_name}</td>
-        <td>${r.stage}</td>
-        <td class="mono" colspan="2">match score: ${r.match_score} · source: ${r.candidate_source || '—'}</td>
+    tbody.innerHTML = pipeline.candidates.map(c => `
+      <tr class="clickable" onclick="openCandidateDrawer(${c.candidate_id})">
+        <td>${c.full_name}</td>
+        <td>${c.stage}</td>
+        <td class="mono">${c.fit_score ?? '—'}</td>
+        <td class="mono">${c.interviews_completed}</td>
       </tr>`).join('');
   } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
-}
-
-function clearCandidateSearch() {
-  document.getElementById('candidate-search-input').value = '';
-  loadCandidatesForRole();
-}
-
-async function loadCandidatesForRole() {
-  const status = document.getElementById('candidate-status-filter').value;
-  const roleId = document.getElementById('candidate-role-filter').value;
-  const thead = document.getElementById('candidates-thead');
-  const tbody = document.querySelector('#candidates-table tbody');
-  document.getElementById('candidate-role-filter').style.display = status === 'active' ? '' : 'none';
-
-  if (status === 'active') {
-    if (!roleId) { tbody.innerHTML = ''; return; }
-    thead.innerHTML = '<th>Name</th><th>Stage</th><th>Fit score</th><th>Owner</th><th>Next action</th>';
-    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-dim)">Loading…</td></tr>`;
-    try {
-      // Section 36's richer table view — owner + next_action, not just stage/fit
-      const rows = await api(`/dashboard/candidates-table?role_id=${roleId}`);
-      tbody.innerHTML = rows.length ? rows.map(r => `
-        <tr class="clickable" onclick="openCandidateDrawer(${r.candidate_id})">
-          <td>${r.full_name}</td>
-          <td>${r.current_stage}</td>
-          <td class="mono">${r.fit_score ?? '—'}</td>
-          <td style="font-size:12px;color:var(--text-dim)">${r.owner}</td>
-          <td style="font-size:12px">${r.next_action}</td>
-        </tr>`).join('') : `<tr><td colspan="5" style="color:var(--text-dim)">No candidates for this role yet.</td></tr>`;
-    } catch (e) { tbody.innerHTML = `<tr><td colspan="5" style="color:var(--red)">${e.message}</td></tr>`; }
-
-  } else if (status === 'hold') {
-    thead.innerHTML = '<th>Name</th><th>Role ID</th><th>Updated</th><th></th>';
-    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Loading…</td></tr>`;
-    try {
-      const rows = await api('/candidates/pool/hold-for-future');
-      tbody.innerHTML = rows.length ? rows.map(r => `
-        <tr class="clickable" onclick="openCandidateDrawer(${r.id})">
-          <td>${r.full_name}</td><td class="mono">${r.role_id ?? '—'}</td>
-          <td style="font-size:12px;color:var(--text-dim)">${r.updated_at ? new Date(r.updated_at).toLocaleDateString() : '—'}</td><td></td>
-        </tr>`).join('') : `<tr><td colspan="4" style="color:var(--text-dim)">No candidates on hold.</td></tr>`;
-    } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
-
-  } else if (status === 'archived') {
-    thead.innerHTML = '<th>Name</th><th>Status</th><th>Reason</th><th>Updated</th>';
-    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-dim)">Loading…</td></tr>`;
-    try {
-      // Restricted-tier data (rejection reasons) intentionally not filtered
-      // here — GET /candidates/pool/archived has no role restriction
-      // server-side, matching Section 25's "preserve full history" intent
-      // rather than Section 10's compensation-tier restriction.
-      const rows = await api('/candidates/pool/archived');
-      tbody.innerHTML = rows.length ? rows.map(r => `
-        <tr class="clickable" onclick="openCandidateDrawer(${r.id})">
-          <td>${r.full_name}</td><td>${r.status}</td>
-          <td style="font-size:12px">${r.rejection_reason || r.withdrawal_reason || '—'}</td>
-          <td style="font-size:12px;color:var(--text-dim)">${r.updated_at ? new Date(r.updated_at).toLocaleDateString() : '—'}</td>
-        </tr>`).join('') : `<tr><td colspan="4" style="color:var(--text-dim)">Nothing archived yet.</td></tr>`;
-    } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
-  }
-}
-
-async function openNewCandidateForm() {
-  const content = document.getElementById('drawer-content');
-  let roleOptions = '<option value="">Loading roles…</option>';
-  try {
-    const roles = await api('/roles');
-    roleOptions = roles.map(r => `<option value="${r.id}">${r.role_title}</option>`).join('');
-  } catch { roleOptions = '<option value="">Could not load roles</option>'; }
-
-  content.innerHTML = `
-    <h3>New candidate</h3>
-    <label>Full name</label><input id="nc-name">
-    <label>Role</label><select id="nc-role">${roleOptions}</select>
-    <label>Email (optional)</label><input id="nc-email" type="email">
-    <label>Resume</label>
-    <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">
-      Upload a file (parsed automatically) or paste text — pick one.
-    </div>
-    <input type="file" id="nc-resume-file" accept=".pdf,.doc,.docx">
-    <label style="margin-top:10px">Or paste resume text</label>
-    <textarea id="nc-resume-text" rows="4" placeholder="Paste resume text here if not uploading a file"></textarea>
-    <div class="form-actions">
-      <button class="primary" onclick="submitNewCandidate()">Create candidate</button>
-    </div>
-    <div id="nc-msg" class="msg"></div>
-  `;
-  openDrawer();
-}
-
-async function submitNewCandidate() {
-  const msg = document.getElementById('nc-msg');
-  const fileInput = document.getElementById('nc-resume-file');
-  const pastedText = document.getElementById('nc-resume-text').value;
-  const roleId = parseInt(document.getElementById('nc-role').value);
-
-  if (!document.getElementById('nc-name').value.trim()) {
-    msg.className = 'msg err'; msg.textContent = 'Full name is required.'; return;
-  }
-  if (!roleId) {
-    msg.className = 'msg err'; msg.textContent = 'Select a role.'; return;
-  }
-
-  try {
-    msg.className = 'msg'; msg.textContent = 'Creating candidate…';
-    const payload = {
-      full_name: document.getElementById('nc-name').value,
-      role_id: roleId,
-      resume_text: pastedText || '',
-      email: document.getElementById('nc-email').value || null,
-    };
-    const created = await api('/candidates', { method: 'POST', body: JSON.stringify(payload) });
-
-    // If a file was picked, upload it right after creation — this is the
-    // "create then attach resume via RChilli" flow, chained into one submit
-    // so the person filling the form doesn't have to do two separate steps.
-    if (fileInput.files.length > 0) {
-      msg.textContent = 'Candidate created — parsing resume file…';
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-      try {
-        await api(`/candidates/${created.id}/resume-file`, { method: 'POST', body: formData });
-        msg.className = 'msg ok'; msg.textContent = 'Candidate created and resume parsed successfully.';
-      } catch (fileErr) {
-        // Candidate exists even though the file parse failed — say so clearly,
-        // don't make it look like the whole thing failed.
-        msg.className = 'msg err';
-        msg.textContent = `Candidate created, but resume parsing failed: ${fileErr.message}. You can retry the upload from the candidate's detail view.`;
-      }
-    } else {
-      msg.className = 'msg ok'; msg.textContent = 'Candidate created.';
-    }
-
-    loadCandidatesForRole();
-    setTimeout(closeDrawer, (pastedText || fileInput.files.length === 0) ? 700 : 1400);
-  } catch (e) {
-    msg.className = 'msg err'; msg.textContent = e.message;
-  }
-}
-
-async function uploadResumeFile(candidateId, inputEl) {
-  const msg = document.getElementById('resume-upload-msg');
-  if (!inputEl.files.length) return;
-  msg.className = 'msg'; msg.textContent = 'Uploading and parsing…';
-  try {
-    const formData = new FormData();
-    formData.append('file', inputEl.files[0]);
-    const result = await api(`/candidates/${candidateId}/resume-file`, { method: 'POST', body: formData });
-    msg.className = 'msg ok';
-    msg.textContent = `Parsed successfully via RChilli. Preview: ${result.resume_text_preview.slice(0, 120)}...`;
-  } catch (e) {
-    msg.className = 'msg err';
-    msg.textContent = `Parsing failed, existing resume text unchanged: ${e.message}`;
-  }
 }
 
 async function openCandidateDrawer(candidateId) {
   CURRENT_CANDIDATE_ID = candidateId;
   const content = document.getElementById('drawer-content');
   const canSeeRefs = ['leadership', 'recruitment'].includes(ROLE);
-  const canUploadResume = ['leadership', 'recruitment'].includes(ROLE);
-  const canSeeNotes = ['leadership', 'recruitment', 'hiring_manager'].includes(ROLE);
-
-  let candidateStage = '…';
-  try {
-    const c = await api(`/candidates/${candidateId}`);
-    candidateStage = c.stage;
-  } catch {}
-
   content.innerHTML = `
     <h3>Candidate #${candidateId}</h3>
-    ${canUploadResume ? `
-      <div style="padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
-        <label style="margin:0 0 4px">Replace resume (PDF/DOC/DOCX)</label>
-        <input type="file" accept=".pdf,.doc,.docx" onchange="uploadResumeFile(${candidateId}, this)">
-        <div id="resume-upload-msg" class="msg"></div>
-      </div>
-    ` : ''}
-    <div style="padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
-      <label style="margin:0 0 4px">Stage: <span id="stage-current-label" class="mono" style="color:var(--amber)">${candidateStage}</span></label>
-      <select id="stage-target">
-        ${STAGE_ORDER.map(s => `<option value="${s}" ${s === candidateStage ? 'selected' : ''}>${s}</option>`).join('')}
-        <option value="Rejected">Rejected</option>
-        <option value="Hold for Future">Hold for Future</option>
-        <option value="On Hold">On Hold</option>
-      </select>
-      <div id="stage-extra-fields"></div>
-      <div class="form-actions"><button onclick="submitStageTransition(${candidateId})">Move candidate</button></div>
-      <div id="stage-msg" class="msg"></div>
-    </div>
     <div class="tab-bar">
-      <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
-      <button class="tab-btn" data-tab="interviews" onclick="switchTab('interviews')">Interviews</button>
+      <button class="tab-btn active" data-tab="interviews" onclick="switchTab('interviews')">Interviews</button>
       <button class="tab-btn" data-tab="assignments" onclick="switchTab('assignments')">Assignments</button>
       ${canSeeRefs ? `<button class="tab-btn" data-tab="references" onclick="switchTab('references')">References</button>` : ''}
-      ${canSeeNotes ? `<button class="tab-btn" data-tab="notes" onclick="switchTab('notes')">Notes & Tags</button>` : ''}
     </div>
-    <div id="tab-overview" class="tab-panel active"></div>
-    <div id="tab-interviews" class="tab-panel"></div>
+    <div id="tab-interviews" class="tab-panel active"></div>
     <div id="tab-assignments" class="tab-panel"></div>
     ${canSeeRefs ? `<div id="tab-references" class="tab-panel"></div>` : ''}
-    ${canSeeNotes ? `<div id="tab-notes" class="tab-panel"></div>` : ''}
   `;
-  document.getElementById('stage-target').addEventListener('change', updateStageExtraFields);
   openDrawer();
-  loadOverviewTab(candidateId);
-}
-
-async function loadOverviewTab(candidateId) {
-  const el = document.getElementById('tab-overview');
-  el.innerHTML = 'Loading…';
-  try {
-    const d = await api(`/candidates/${candidateId}/detail-view`);
-    let html = `<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">${d.applied_role || 'No role'} · ${d.status}</div>`;
-
-    if (d.rejection_reason) {
-      html += `<div class="qa-block" style="border-color:var(--red)"><strong style="color:var(--red)">Rejected:</strong> ${d.rejection_reason}</div>`;
-    }
-    if (d.withdrawal_reason) {
-      html += `<div class="qa-block"><strong>Withdrew:</strong> ${d.withdrawal_reason}</div>`;
-    }
-    if (d.tags && d.tags.length) {
-      html += `<div style="margin:10px 0">${d.tags.map(t => `<span class="priority-tag priority-High" style="margin-right:6px">${t}</span>`).join('')}</div>`;
-    }
-    if (d.pending_concerns && d.pending_concerns.length) {
-      html += `<h3 style="margin-top:16px">Pending concerns</h3><ul>${d.pending_concerns.map(c => `<li style="font-size:13px;margin-bottom:4px">${c}</li>`).join('')}</ul>`;
-    }
-    if (d.competency_coverage_well_covered && d.competency_coverage_well_covered.length) {
-      html += `<h3 style="margin-top:16px">Well covered</h3><div style="font-size:13px;color:var(--green)">${d.competency_coverage_well_covered.join(', ')}</div>`;
-    }
-
-    // Joining risk only exists once a candidate reaches Offer Accepted —
-    // the backend creates the tracker automatically at that transition, so
-    // a 404 here just means the candidate hasn't gotten there yet, not an error.
-    if (d.stage === 'Offer Accepted' || d.stage === 'Joined') {
-      html += `<h3 style="margin-top:16px">Joining risk</h3><div id="joining-risk-content">Loading…</div>`;
-    }
-
-    html += `<h3 style="margin-top:16px">Timeline</h3>`;
-    html += d.candidate_timeline.map(t => `
-      <div style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">
-        <span class="mono" style="color:var(--text-faint)">${new Date(t.occurred_at).toLocaleString()}</span><br>
-        ${t.activity}${t.actor ? ` <span style="color:var(--text-dim)">— ${t.actor}</span>` : ''}
-      </div>`).join('') || '<p style="color:var(--text-dim)">No activity logged yet.</p>';
-
-    el.innerHTML = html;
-    if (d.stage === 'Offer Accepted' || d.stage === 'Joined') loadJoiningRisk(candidateId);
-  } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
-}
-
-async function loadJoiningRisk(candidateId) {
-  const el = document.getElementById('joining-risk-content');
-  const canEdit = ['leadership', 'recruitment'].includes(ROLE);
-  try {
-    const risk = await api(`/candidates/${candidateId}/joining-risk`);
-    const riskColor = risk.risk_level === 'High Risk' ? 'var(--red)' : risk.risk_level === 'Moderate Risk' ? 'var(--amber)' : 'var(--green)';
-    let html = `
-      <div style="font-size:13px;margin-bottom:8px">
-        Owner: ${risk.recruiter_owner || '—'} ·
-        <span style="color:${riskColor};font-weight:600">${risk.risk_level}</span> ·
-        Confirmed: ${risk.joining_confirmed ? 'Yes' : 'No'}
-      </div>
-      ${risk.notes ? `<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">${risk.notes}</div>` : ''}
-    `;
-    if (canEdit) {
-      html += `
-        <select id="jr-risk-level">
-          <option ${risk.risk_level === 'Low Risk' ? 'selected' : ''}>Low Risk</option>
-          <option ${risk.risk_level === 'Moderate Risk' ? 'selected' : ''}>Moderate Risk</option>
-          <option ${risk.risk_level === 'High Risk' ? 'selected' : ''}>High Risk</option>
-        </select>
-        <label style="margin-top:8px">Notes</label>
-        <textarea id="jr-notes" rows="2">${risk.notes || ''}</textarea>
-        <label style="display:flex;align-items:center;gap:6px;margin-top:8px">
-          <input type="checkbox" id="jr-confirmed" style="width:auto" ${risk.joining_confirmed ? 'checked' : ''}> Joining confirmed
-        </label>
-        <div class="form-actions"><button onclick="updateJoiningRisk(${candidateId})">Update</button></div>
-        <div id="jr-msg" class="msg"></div>
-      `;
-    }
-    el.innerHTML = html;
-  } catch (e) { el.innerHTML = `<span style="color:var(--text-dim);font-size:13px">${e.message}</span>`; }
-}
-
-async function updateJoiningRisk(candidateId) {
-  const msg = document.getElementById('jr-msg');
-  try {
-    const payload = {
-      risk_level: document.getElementById('jr-risk-level').value,
-      notes: document.getElementById('jr-notes').value || null,
-      joining_confirmed: document.getElementById('jr-confirmed').checked,
-    };
-    await api(`/candidates/${candidateId}/joining-risk`, { method: 'PATCH', body: JSON.stringify(payload) });
-    msg.className = 'msg ok'; msg.textContent = 'Updated.';
-    loadJoiningRisk(candidateId);
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-}
-
-async function loadNotesTab(candidateId) {
-  const el = document.getElementById('tab-notes');
-  const canWriteNotes = ROLE === 'recruitment';
-  const canManageTags = ['leadership', 'recruitment'].includes(ROLE);
-  el.innerHTML = 'Loading…';
-  try {
-    const [notes, tags] = await Promise.all([
-      api(`/candidates/${candidateId}/recruiter-notes`),
-      api(`/candidates/${candidateId}/tags`),
-    ]);
-
-    let html = `<h3>Tags</h3>`;
-    html += `<div style="margin-bottom:10px">${tags.map(t => `
-      <span class="priority-tag priority-High" style="margin-right:6px;margin-bottom:6px;display:inline-block">
-        ${t.tag} ${canManageTags ? `<a href="#" onclick="removeTag(${candidateId},${t.id});return false" style="margin-left:4px;color:var(--red)">✕</a>` : ''}
-      </span>`).join('') || '<span style="color:var(--text-dim);font-size:13px">No tags yet.</span>'}</div>`;
-
-    if (canManageTags) {
-      html += `
-        <select id="new-tag-select">${RECRUITER_TAGS.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
-        <button onclick="addTag(${candidateId})">Add tag</button>
-        <div id="tag-msg" class="msg"></div>
-      `;
-    }
-
-    html += `<h3 style="margin-top:20px">Recruiter notes</h3>`;
-    html += notes.map(n => `
-      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <strong>${n.recruiter_name || 'Recruiter'}</strong> — ${n.recruiter_recommendation} (${n.status})<br>
-        ${n.recruiter_summary}
-        ${n.key_concerns ? `<div style="color:var(--red);margin-top:4px">Concerns: ${n.key_concerns}</div>` : ''}
-      </div>`).join('') || '<p style="color:var(--text-dim)">No recruiter notes yet.</p>';
-
-    if (canWriteNotes) {
-      html += `
-        <h3 style="margin-top:16px">Add a note</h3>
-        <label>Summary</label><textarea id="note-summary" rows="2"></textarea>
-        <label>Key concerns (optional)</label><textarea id="note-concerns" rows="2"></textarea>
-        <label>Recommendation</label>
-        <select id="note-rec"><option>Proceed</option><option>Hold</option><option>Reject</option></select>
-        <div class="form-actions"><button class="primary" onclick="submitNote(${candidateId})">Save note</button></div>
-        <div id="note-msg" class="msg"></div>
-      `;
-    }
-    el.innerHTML = html;
-  } catch (e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
-}
-
-const RECRUITER_TAGS = [
-  "Fast Track", "Strong Referral", "Compensation Risk", "Communication Concern",
-  "Leadership Potential", "Hold for Future", "Founder Review Recommended", "High Joining Risk",
-];
-
-async function addTag(candidateId) {
-  const msg = document.getElementById('tag-msg');
-  const tag = document.getElementById('new-tag-select').value;
-  try {
-    await api(`/candidates/${candidateId}/tags`, { method: 'POST', body: JSON.stringify({ tag }) });
-    loadNotesTab(candidateId);
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-}
-
-async function removeTag(candidateId, tagId) {
-  try {
-    await api(`/candidates/${candidateId}/tags/${tagId}`, { method: 'DELETE' });
-    loadNotesTab(candidateId);
-  } catch (e) { alert(e.message); }
-}
-
-async function submitNote(candidateId) {
-  const msg = document.getElementById('note-msg');
-  try {
-    const payload = {
-      recruiter_summary: document.getElementById('note-summary').value,
-      key_concerns: document.getElementById('note-concerns').value || null,
-      recruiter_recommendation: document.getElementById('note-rec').value,
-    };
-    if (!payload.recruiter_summary.trim()) throw new Error('Summary is required.');
-    await api(`/candidates/${candidateId}/recruiter-notes`, { method: 'POST', body: JSON.stringify(payload) });
-    msg.className = 'msg ok'; msg.textContent = 'Note saved.';
-    loadNotesTab(candidateId);
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-}
-
-// Mirrors app/routers/candidate_lifecycle.py STAGE_ORDER exactly — kept in
-// sync manually since the frontend has no way to fetch this list from the
-// API today; if the backend order changes, this needs updating too.
-const STAGE_ORDER = [
-  "Applied", "Resume Review", "Shortlisted", "Interview Process",
-  "Assignment Sent", "Assignment Submitted", "Final Evaluation",
-  "Reference Check", "Offer Discussion", "Offer Released",
-  "Offer Accepted", "Joined",
-];
-
-const REJECTION_REASONS = [
-  "Technical Gap", "Communication Gap", "Compensation Mismatch",
-  "Stability Concern", "Cultural Fit", "Leadership Gap",
-  "Assignment Weak", "Candidate Withdrew",
-];
-
-function updateStageExtraFields() {
-  const target = document.getElementById('stage-target').value;
-  const container = document.getElementById('stage-extra-fields');
-  if (target === 'Rejected') {
-    container.innerHTML = `
-      <label>Rejection reason (required)</label>
-      <select id="stage-rejection-reason">
-        <option value="">Select a reason…</option>
-        ${REJECTION_REASONS.map(r => `<option value="${r}">${r}</option>`).join('')}
-      </select>
-    `;
-  } else {
-    // A skip reason MIGHT be required depending on how far this jumps — the
-    // backend is the source of truth on whether it's actually needed, this
-    // field is just offered proactively so the person isn't surprised by a
-    // validation error with nowhere to put the answer.
-    container.innerHTML = `
-      <label>Skip reason (only required if this skips stages)</label>
-      <input id="stage-skip-reason" placeholder="e.g. Founder wants to accelerate">
-    `;
-  }
-}
-
-async function submitStageTransition(candidateId) {
-  const msg = document.getElementById('stage-msg');
-  const toStage = document.getElementById('stage-target').value;
-  const payload = { to_stage: toStage };
-
-  const rejectionEl = document.getElementById('stage-rejection-reason');
-  const skipEl = document.getElementById('stage-skip-reason');
-  if (rejectionEl) payload.rejection_reason = rejectionEl.value || null;
-  if (skipEl) payload.skip_reason = skipEl.value || null;
-
-  try {
-    msg.className = 'msg'; msg.textContent = 'Moving…';
-    const result = await api(`/candidates/${candidateId}/transition`, { method: 'POST', body: JSON.stringify(payload) });
-    msg.className = 'msg ok';
-    msg.textContent = `Moved: ${result.from_stage} → ${result.to_stage}${result.was_skip ? ' (skip logged)' : ''}`;
-    document.getElementById('stage-current-label').textContent = result.to_stage;
-    loadCandidatesForRole();
-  } catch (e) {
-    // Backend errors here are specific and real (wrong owner role, missing
-    // rejection reason, missing skip reason) — show them exactly, don't
-    // paraphrase into something vaguer.
-    msg.className = 'msg err'; msg.textContent = e.message;
-  }
+  loadInterviewsTab(candidateId);
 }
 
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'overview') loadOverviewTab(CURRENT_CANDIDATE_ID);
-  if (name === 'interviews') loadInterviewsTab(CURRENT_CANDIDATE_ID);
   if (name === 'assignments') loadAssignmentsTab(CURRENT_CANDIDATE_ID);
   if (name === 'references') loadReferencesTab(CURRENT_CANDIDATE_ID);
-  if (name === 'notes') loadNotesTab(CURRENT_CANDIDATE_ID);
 }
 
 async function loadInterviewsTab(candidateId) {
