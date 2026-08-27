@@ -318,6 +318,7 @@
       <div class="tab-bar">
         <button class="tab-btn active" data-admintab="benchmarks" onclick="switchAdminTab('benchmarks')">Compensation Benchmarks</button>
         <button class="tab-btn" data-admintab="templates" onclick="switchAdminTab('templates')">Hiring Templates</button>
+        <button class="tab-btn" data-admintab="users" onclick="switchAdminTab('users')">Users</button>
       </div>
       <div id="admintab-benchmarks" class="tab-panel active">
         <div class="panel">
@@ -352,7 +353,33 @@
         </div>
         <div class="panel" id="templates-list">Loading…</div>
       </div>
-    </div>
+      <div id="admintab-users" class="tab-panel">
+        <div class="panel">
+          <h3>Create user</h3>
+          <label>Email</label><input id="user-email" type="email">
+          <label>Full name</label><input id="user-fullname">
+          <label>Password</label><input id="user-password" type="password" placeholder="They can log in with this — share it securely">
+          <label>Role</label>
+          <select id="user-role"></select>
+          <div class="form-actions"><button class="primary" onclick="createSingleUser()">Create</button></div>
+          <div id="user-create-msg" class="msg"></div>
+        </div>
+        <div class="panel">
+          <h3>Bulk create</h3>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">
+            One person per line: <span class="mono">email, full name, role</span>.
+            Passwords are auto-generated — the whole batch fails together if any email already exists.
+          </div>
+          <textarea id="bulk-user-input" rows="4" placeholder="jane@solinas.in, Jane Doe, interviewer&#10;raj@solinas.in, Raj Kumar, hiring_manager"></textarea>
+          <div class="form-actions"><button onclick="createBulkUsers()">Create batch</button></div>
+          <div id="bulk-create-msg" class="msg"></div>
+          <div id="bulk-create-results"></div>
+        </div>
+        <div class="panel" style="overflow-x:auto">
+          <table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th></th></tr></thead>
+            <tbody id="users-tbody"></tbody></table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -482,6 +509,81 @@ async function loadAdminData() {
         <span style="color:var(--text-dim);font-size:12px">${(t.template_content || '').slice(0, 150)}${t.template_content && t.template_content.length > 150 ? '…' : ''}</span>
       </div>`).join('') : '<span style="color:var(--text-dim)">No templates yet.</span>';
   } catch (e) { document.getElementById('templates-list').innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+
+  // Role options depend on WHO is logged in — leadership sees all four,
+  // recruitment only sees the two it's actually allowed to create
+  // (app/routers/auth.py's RECRUITMENT_CREATABLE_ROLES). Enforced
+  // server-side regardless; this just avoids offering a choice that would
+  // just come back as a 403.
+  const creatableRoles = ROLE === 'leadership'
+    ? ['leadership', 'recruitment', 'hiring_manager', 'interviewer']
+    : ['hiring_manager', 'interviewer'];
+  document.getElementById('user-role').innerHTML = creatableRoles.map(r => `<option value="${r}">${r}</option>`).join('');
+
+  loadUsersList();
+}
+
+async function loadUsersList() {
+  const tbody = document.getElementById('users-tbody');
+  try {
+    const users = await api('/auth/users');
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>${u.email}</td><td>${u.full_name}</td>
+        <td><span class="priority-tag priority-High">${u.role}</span></td>
+        <td>${ROLE === 'leadership' ? `<button style="font-size:11px" onclick="resetUserPassword(${u.id}, '${u.email}')">Reset password</button>` : ''}</td>
+      </tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim)">No users found.</td></tr>';
+  } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red)">${e.message}</td></tr>`; }
+}
+
+async function createSingleUser() {
+  const msg = document.getElementById('user-create-msg');
+  const email = document.getElementById('user-email').value.trim();
+  const fullName = document.getElementById('user-fullname').value.trim();
+  const password = document.getElementById('user-password').value;
+  const role = document.getElementById('user-role').value;
+  if (!email || !fullName || !password) { msg.className = 'msg err'; msg.textContent = 'All fields are required.'; return; }
+  try {
+    await api('/auth/users', { method: 'POST', body: JSON.stringify({ email, full_name: fullName, password, role }) });
+    msg.className = 'msg ok'; msg.textContent = `Created ${email} as ${role}.`;
+    document.getElementById('user-email').value = '';
+    document.getElementById('user-fullname').value = '';
+    document.getElementById('user-password').value = '';
+    loadUsersList();
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function createBulkUsers() {
+  const msg = document.getElementById('bulk-create-msg');
+  const resultsEl = document.getElementById('bulk-create-results');
+  const raw = document.getElementById('bulk-user-input').value.trim();
+  if (!raw) { msg.className = 'msg err'; msg.textContent = 'Enter at least one person.'; return; }
+
+  const entries = raw.split('\n').filter(l => l.trim()).map(line => {
+    const [email, full_name, role] = line.split(',').map(s => s.trim());
+    return { email, full_name, role };
+  });
+  const invalid = entries.find(e => !e.email || !e.full_name || !e.role);
+  if (invalid) { msg.className = 'msg err'; msg.textContent = 'Every line needs email, full name, and role — check your formatting.'; return; }
+
+  try {
+    msg.className = 'msg'; msg.textContent = 'Creating…';
+    const result = await api('/auth/users/bulk', { method: 'POST', body: JSON.stringify(entries) });
+    msg.className = 'msg ok'; msg.textContent = `Created ${result.created_count} accounts. Passwords shown below — copy them now, they can't be retrieved again.`;
+    resultsEl.innerHTML = `<div class="qa-block">${result.accounts.map(a => `
+      <div style="font-family:monospace;font-size:12px;margin-bottom:4px">${a.email} — <strong style="color:var(--amber)">${a.temporary_password}</strong></div>
+    `).join('')}</div>`;
+    document.getElementById('bulk-user-input').value = '';
+    loadUsersList();
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+async function resetUserPassword(userId, email) {
+  if (!confirm(`Reset password for ${email}? Their current password stops working immediately.`)) return;
+  try {
+    const result = await api(`/auth/users/${userId}/reset-password`, { method: 'POST' });
+    alert(`New password for ${email}:\n\n${result.temporary_password}\n\nCopy this now — it can't be shown again.`);
+  } catch (e) { alert(e.message); }
 }
 
 async function createBenchmark() {
