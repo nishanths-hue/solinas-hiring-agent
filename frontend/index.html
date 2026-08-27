@@ -316,6 +316,12 @@
           <button onclick="runCandidateSearch()">Search</button>
           <button onclick="clearCandidateSearch()">Clear</button>
         </div>
+        <label style="margin-top:12px">Or ask in plain English</label>
+        <div style="display:flex;gap:8px">
+          <input id="candidate-natural-search-input" placeholder='e.g. "PLC candidates not contacted in 2 weeks"' onkeydown="if(event.key==='Enter') runNaturalSearch()">
+          <button onclick="runNaturalSearch()">Ask</button>
+        </div>
+        <div id="natural-search-interpretation" style="font-size:12px;color:var(--text-dim);margin-top:4px"></div>
       </div>
       <div class="panel" style="overflow-x:auto">
         <table id="candidates-table"><thead id="candidates-thead"><tr>
@@ -1000,6 +1006,35 @@ async function runCandidateSearch() {
 function clearCandidateSearch() {
   document.getElementById('candidate-search-input').value = '';
   loadCandidatesForRole();
+}
+
+async function runNaturalSearch() {
+  const q = document.getElementById('candidate-natural-search-input').value.trim();
+  const thead = document.getElementById('candidates-thead');
+  const tbody = document.querySelector('#candidates-table tbody');
+  const interpretationEl = document.getElementById('natural-search-interpretation');
+  if (!q) return;
+  thead.innerHTML = '<th>Name</th><th>Stage</th><th>Fit score (AI)</th><th colspan="2">Matched skills</th>';
+  tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-dim)">Interpreting and searching…</td></tr>`;
+  interpretationEl.textContent = '';
+  try {
+    const result = await api(`/candidates/search/natural?q=${encodeURIComponent(q)}`);
+    interpretationEl.innerHTML = `
+      <strong>${aiBadge(result)} Interpreted as:</strong> ${result.interpreted_filter.interpretation_notes}
+      ${result.experience_filter_note ? `<br><span style="color:var(--red)">${result.experience_filter_note}</span>` : ''}
+    `;
+    if (result.results.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-dim)">No matches for "${q}".</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = result.results.map(r => `
+      <tr class="clickable" onclick="openCandidateDrawer(${r.candidate_id})">
+        <td>${r.full_name}</td>
+        <td>${r.stage}</td>
+        <td class="mono">${r.fit_score ?? '—'}</td>
+        <td class="mono" colspan="2">${r.matched_skills.join(', ') || '—'}</td>
+      </tr>`).join('');
+  } catch (e) { tbody.innerHTML = `<tr><td colspan="5" style="color:var(--red)">${e.message}</td></tr>`; }
 }
 
 async function loadCandidatesForRole() {

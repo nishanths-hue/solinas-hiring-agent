@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
 from app.models import (
     Candidate, Role, ResumeScreeningResult, RecruiterScreeningNote, RecruiterTag,
@@ -7,6 +8,8 @@ from app.models import (
 )
 from app.auth import get_current_user
 from app.permissions import filter_recruiter_note_dict, can_view_references
+from app.ai_contract import wrap_ai_output
+from agents.search_interpreter import interpret_search_query
 
 router = APIRouter(tags=["candidate-views"])
 
@@ -136,6 +139,89 @@ def candidate_detail_view(candidate_id: int, db: Session = Depends(get_db), user
             for t in timeline
         ],
     }
+
+
+@router.get("/candidates/search/natural")
+def natural_language_search(q: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """
+    Section 20's "Natural-language search" — distinct from the existing
+    keyword search at /candidates/search/query. The LLM only translates
+    intent into a structured filter (see agents/search_interpreter.py);
+    every actual filtering decision below is deterministic, not the LLM
+    guessing which candidates match.
+
+    Known, stated limitation: min_experience_years is interpreted but NOT
+    enforced as a filter — there's no structured "years of experience"
+    field anywhere in this schema, only free-text resume content, and
+    filtering on an unreliable text-pattern guess would be worse than
+    being honest that this criterion isn't actually applied yet.
+    """
+    if not q or not q.strip():
+        raise HTTPException(422, "Query must not be empty.")
+
+    filter_spec = interpret_search_query(q)
+
+    candidates = db.query(Candidate).filter(Candidate.status == "Active").all()
+    now = datetime.now(timezone.utc)
+    results = []
+
+    for c in candidates:
+        if filter_spec["stages"] and c.stage not in filter_spec["stages"]:
+            continue
+
+        latest_screening = (
+            db.query(ResumeScreeningResult)
+            .filter(ResumeScreeningResult.candidate_id == c.id)
+            .order_by(ResumeScreeningResult.created_at.desc())
+            .first()
+        )
+
+        if filter_spec["min_fit_score"] is not None:
+            if not latest_screening or (latest_screening.fit_score or 0) < filter_spec["min_fit_score"]:
+                continue
+
+        matched_skills_for_candidate = set(latest_screening.matched_skills or []) if latest_screening else set()
+        if filter_spec["skills_required"]:
+            required_lower = {s.lower() for s in filter_spec["skills_required"]}
+            candidate_skills_lower = {s.lower() for s in matched_skills_for_candidate}
+            # Fall back to resume_text substring match for unscreened
+            # candidates — same approach the existing keyword search uses,
+            # so a candidate isn't invisible to natural-language search
+            # just because they haven't been AI-screened yet.
+            resume_lower = (c.resume_text or "").lower()
+            if not required_lower.issubset(candidate_skills_lower):
+                if not all(skill in resume_lower for skill in required_lower):
+                    continue
+
+        if filter_spec["days_since_last_activity_min"] is not None:
+            last_activity = (
+                db.query(ActivityTimeline)
+                .filter(ActivityTimeline.candidate_id == c.id)
+                .order_by(ActivityTimeline.occurred_at.desc())
+                .first()
+            )
+            reference_time = last_activity.occurred_at if last_activity else c.created_at
+            if reference_time.tzinfo is None:
+                reference_time = reference_time.replace(tzinfo=timezone.utc)
+            days_idle = (now - reference_time).total_seconds() / 86400
+            if days_idle < filter_spec["days_since_last_activity_min"]:
+                continue
+
+        results.append({
+            "candidate_id": c.id, "full_name": c.full_name, "stage": c.stage,
+            "fit_score": latest_screening.fit_score if latest_screening else None,
+            "matched_skills": list(matched_skills_for_candidate),
+        })
+
+    return wrap_ai_output({
+        "query": q,
+        "interpreted_filter": {k: v for k, v in filter_spec.items() if k != "model_used"},
+        "experience_filter_note": (
+            "min_experience_years was interpreted but is NOT enforced — no structured "
+            "experience field exists to filter on reliably."
+        ) if filter_spec["min_experience_years"] is not None else None,
+        "results": results,
+    }, user.email)
 
 
 @router.get("/candidates/search/query")
