@@ -72,3 +72,19 @@ def send_password_reset_email(to_email: str, temporary_password: str) -> bool:
     <p>— Solinas Hiring System</p>
     """
     return _send(to_email, subject, html)
+
+
+def send_sla_escalation_email(to_email: str, entity_type: str, stage_name: str, escalation_level: str, hours_overdue: float) -> bool:
+    subject = f"[{escalation_level}] Hiring SLA breach: {stage_name}"
+    urgency_note = "This has now blocked hiring progress and needs immediate attention." if escalation_level == "Hiring Blocked" else \
+        "This is now a formal escalation." if escalation_level == "Escalation" else \
+        "This is overdue and needs attention soon."
+    html = f"""
+    <p><strong>{escalation_level}</strong> — a hiring SLA is overdue.</p>
+    <p><strong>Stage:</strong> {stage_name}<br>
+    <strong>Overdue by:</strong> {round(hours_overdue, 1)} hours</p>
+    <p>{urgency_note}</p>
+    <p>Check the Solinas Hiring System dashboard for the specific candidate/role involved.</p>
+    <p>— Solinas Hiring System</p>
+    """
+    return _send(to_email, subject, html)
