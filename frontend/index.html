@@ -1172,6 +1172,20 @@ async function markAsDuplicate(candidateId, duplicateOfId, buttonEl) {
   } catch (e) { alert(e.message); }
 }
 
+async function runScreening(candidateId) {
+  const msg = document.getElementById('screen-msg-rerun') || document.getElementById('screen-msg-first');
+  msg.className = 'msg'; msg.textContent = 'Screening…';
+  try {
+    // Screening moves the candidate's stage to Resume Review server-side —
+    // not something this button decides, it's the endpoint's own behavior
+    // (app/routers/candidates.py's run_screening), same as it's always been.
+    await api(`/candidates/${candidateId}/screen`, { method: 'POST' });
+    msg.className = 'msg ok'; msg.textContent = 'Screening complete.';
+    loadOverviewTab(candidateId);
+    loadCandidatesForRole();
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
 async function uploadResumeFile(candidateId, inputEl) {
   const msg = document.getElementById('resume-upload-msg');
   if (!inputEl.files.length) return;
@@ -1246,6 +1260,25 @@ async function loadOverviewTab(candidateId) {
   try {
     const d = await api(`/candidates/${candidateId}/detail-view`);
     let html = `<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">${d.applied_role || 'No role'} · ${d.status}</div>`;
+
+    const canScreen = ['leadership', 'recruitment'].includes(ROLE);
+    const latestScreening = d.ai_summaries && d.ai_summaries.length ? d.ai_summaries[d.ai_summaries.length - 1] : null;
+    if (latestScreening) {
+      html += `
+        <div class="qa-block">
+          <strong>Fit score (AI): ${latestScreening.fit_score ?? '—'}</strong>
+          ${latestScreening.suggested_priority ? ` · priority: ${latestScreening.suggested_priority}` : ''}
+          <div style="font-size:13px;color:var(--text-dim);margin-top:4px">${latestScreening.score_explanation || ''}</div>
+        </div>
+        ${canScreen ? `<button style="margin-top:8px" onclick="runScreening(${candidateId})">Re-run screening</button>` : ''}
+        <div id="screen-msg-rerun" class="msg"></div>
+      `;
+    } else if (canScreen) {
+      html += `
+        <button onclick="runScreening(${candidateId})">Run AI resume screening</button>
+        <div id="screen-msg-first" class="msg"></div>
+      `;
+    }
 
     // Duplicate check runs every time the Overview tab loads, not just at
     // creation — a matching candidate could get added to the system later,
@@ -1671,10 +1704,41 @@ async function loadAssignmentsTab(candidateId) {
       if (ASSIGNMENT_REPO_CACHE === null) {
         try { ASSIGNMENT_REPO_CACHE = await api('/assignment-repository'); } catch { ASSIGNMENT_REPO_CACHE = []; }
       }
+      let recommendedIds = [];
+      let recommendHtml = '';
+      try {
+        const rec = await api(`/candidates/${candidateId}/assignments/recommend`);
+        recommendedIds = rec.recommendations.map(r => r.assignment_repository_id);
+        recommendHtml = `
+          <h3 style="margin-top:18px">Recommended for this role ${aiBadge(rec)}</h3>
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Ranked by skill/category/experience match — not an LLM guess, fully explainable.</div>
+          ${rec.recommendations.slice(0, 3).map(r => `
+            <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+              <strong>${r.assignment_name}</strong> <span class="mono" style="color:var(--text-dim)">score: ${r.score}</span><br>
+              <span style="color:var(--text-dim);font-size:12px">
+                ${r.matched_skills.length ? `Matches: ${r.matched_skills.join(', ')}` : 'No skill overlap'}
+                ${r.role_category_match ? ' · category match' : ''}${r.experience_level_match ? ' · experience match' : ''}
+              </span>
+            </div>`).join('') || '<span style="color:var(--text-dim);font-size:13px">No repository items to compare.</span>'}
+        `;
+      } catch {}
+
+      // Recommended items float to the top of the picker, but nothing is
+      // ever auto-selected or auto-sent — a human still explicitly picks
+      // and clicks Send, same as before this feature existed.
+      const sortedRepo = [...ASSIGNMENT_REPO_CACHE].sort((a, b) => {
+        const aRank = recommendedIds.indexOf(a.id), bRank = recommendedIds.indexOf(b.id);
+        if (aRank === -1 && bRank === -1) return 0;
+        if (aRank === -1) return 1;
+        if (bRank === -1) return -1;
+        return aRank - bRank;
+      });
+
+      html += recommendHtml;
       html += `
         <h3 style="margin-top:18px">Send assignment</h3>
         ${ASSIGNMENT_REPO_CACHE.length === 0 ? '<p style="color:var(--text-dim);font-size:12px">No assignment templates in the repository yet.</p>' : `
-          <select id="asg-repo">${ASSIGNMENT_REPO_CACHE.map(r => `<option value="${r.id}">${r.assignment_name}</option>`).join('')}</select>
+          <select id="asg-repo">${sortedRepo.map(r => `<option value="${r.id}">${r.assignment_name}${recommendedIds[0] === r.id ? ' (recommended)' : ''}</option>`).join('')}</select>
           <div class="form-actions"><button class="primary" onclick="sendAssignment(${candidateId})">Send</button></div>
         `}
         <div id="asg-msg" class="msg"></div>
