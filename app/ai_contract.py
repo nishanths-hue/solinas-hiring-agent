@@ -28,16 +28,22 @@ from datetime import datetime, timezone
 AI_MODEL_VERSION = "claude-sonnet-4-6"
 
 
-def wrap_ai_output(output: dict, triggered_by: str) -> dict:
+def wrap_ai_output(output: dict, triggered_by: str, model_override: str = None) -> dict:
     """
     Adds the contract's metadata fields to an AI-generated response dict.
     Every key already in `output` is preserved unchanged — this only adds
     new keys, never removes or renames existing ones.
+
+    model_override exists for deterministic (non-LLM) recommendation logic
+    — e.g. assignment selection, which the document itself classifies as
+    "Mixed" rather than purely AI. Labeling a deterministic scoring
+    function's output with the Claude model name would violate this same
+    contract's own honesty requirement (accurate model/version metadata).
     """
     return {
         **output,
         "ai_generated": True,
-        "ai_model": AI_MODEL_VERSION,
+        "ai_model": model_override or AI_MODEL_VERSION,
         "ai_generated_at": datetime.now(timezone.utc).isoformat(),
         "ai_triggered_by": triggered_by,
     }

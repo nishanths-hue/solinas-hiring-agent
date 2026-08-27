@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models import Assignment, AssignmentRepository, Candidate, get_db, User
 from app.auth import get_current_user, require_roles
 from app.sla import start_sla_clock
+from app.ai_contract import wrap_ai_output
 from agents.assignment_scoring import compute_weighted_total
 
 router = APIRouter(prefix="/candidates/{candidate_id}/assignments", tags=["assignments"])
@@ -23,6 +24,55 @@ class AssignmentScore(BaseModel):
     clarity_structure_score: float
     practical_thinking_score: float
     completeness_score: float
+
+
+@router.get("/recommend")
+def recommend_assignment(
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("recruitment", "hiring_manager")),
+):
+    """
+    Phase I — deterministic scoring, not an LLM call. The document itself
+    classifies assignment selection as "Mixed" (AI or deterministic?), and
+    deterministic scoring here means the recommendation is fully
+    explainable — exact skill overlap, exact category/experience match —
+    rather than an LLM's best guess dressed up as a recommendation.
+    Ranked, not auto-selected: this returns candidates for a human to pick
+    from, it never sends an assignment itself.
+    """
+    candidate = db.query(Candidate).get(candidate_id)
+    if not candidate:
+        raise HTTPException(404, "Candidate not found")
+    role = candidate.role
+    if not role:
+        raise HTTPException(400, "Candidate has no associated role to match against")
+
+    role_skills = set((role.mandatory_skills or []) + (role.nice_to_have_skills or []))
+    repo_items = db.query(AssignmentRepository).all()
+
+    scored = []
+    for item in repo_items:
+        item_skills = set(item.skills_covered or [])
+        matched_skills = sorted(role_skills & item_skills)
+        category_match = bool(item.role_category and role.role_title and
+                               item.role_category.lower() in role.role_title.lower())
+        experience_match = bool(item.experience_level and role.experience_range and
+                                 item.experience_level.lower() == role.experience_range.lower())
+
+        score = len(matched_skills) * 10 + (15 if category_match else 0) + (10 if experience_match else 0)
+        scored.append({
+            "assignment_repository_id": item.id, "assignment_name": item.assignment_name,
+            "score": score, "matched_skills": matched_skills,
+            "role_category_match": category_match, "experience_level_match": experience_match,
+            "historical_usage_count": item.historical_usage_count or 0,
+        })
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return wrap_ai_output(
+        {"candidate_id": candidate_id, "recommendations": scored},
+        user.email, model_override="deterministic-scoring-v1",
+    )
 
 
 @router.post("", status_code=201)
