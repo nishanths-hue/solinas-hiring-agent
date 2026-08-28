@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.models import Assignment, AssignmentRepository, Candidate, get_db, User
 from app.auth import get_current_user, require_roles
 from app.sla import start_sla_clock, complete_open_clock_for
+from app.candidate_comms import send_and_log
+from agents.email_agent import build_assignment_email
 from app.ai_contract import wrap_ai_output
 from agents.assignment_scoring import compute_weighted_total
 
@@ -100,6 +102,15 @@ def send_assignment(
     db.commit()
     db.refresh(assignment)
     start_sla_clock(db, "candidate", candidate_id, "Assignment sent")
+
+    role = candidate.role
+    deadline_str = payload.submission_deadline.strftime("%B %d, %Y") if payload.submission_deadline else None
+    subject, html = build_assignment_email(
+        candidate.full_name, role.role_title if role else "the role",
+        repo_item.assignment_name, deadline_str,
+    )
+    send_and_log(db, candidate_id, candidate.email, "Assignment", subject, html)
+
     return {"id": assignment.id, "candidate_id": candidate_id, "status": "Sent",
             "assignment_name": repo_item.assignment_name}
 

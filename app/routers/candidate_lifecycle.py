@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.models import Candidate, ActivityTimeline, JoiningRiskTracker, get_db, User
 from app.auth import get_current_user, require_roles
 from app.sla import start_sla_clock, complete_open_clock_for
+from app.candidate_comms import send_and_log
+from agents.email_agent import build_shortlisted_email, build_rejection_email
 
 router = APIRouter(prefix="/candidates", tags=["candidate-lifecycle"])
 
@@ -173,6 +175,19 @@ def transition_candidate(
             db.add(JoiningRiskTracker(candidate_id=candidate_id, recruiter_owner=user.full_name))
 
     db.commit()
+
+    # Priority 5 — Section 12's candidate-facing communication, fired
+    # AFTER the commit succeeds, not before — a validation failure earlier
+    # in this function (e.g. missing rejection_reason) must never result
+    # in an email being sent for a transition that didn't actually happen.
+    role = candidate.role
+    role_title = role.role_title if role else "the role"
+    if payload.to_stage == "Shortlisted":
+        subject, html = build_shortlisted_email(candidate.full_name, role_title)
+        send_and_log(db, candidate_id, candidate.email, "Shortlisted", subject, html)
+    if payload.to_stage == "Rejected":
+        subject, html = build_rejection_email(candidate.full_name, role_title)
+        send_and_log(db, candidate_id, candidate.email, "Rejection", subject, html)
     return {
         "candidate_id": candidate_id, "from_stage": from_stage, "to_stage": payload.to_stage,
         "status": candidate.status, "was_skip": is_skip,

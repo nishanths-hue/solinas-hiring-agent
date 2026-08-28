@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.models import Candidate, Role, ActivityTimeline, ResumeScreeningResult, get_db, User
+from app.models import Candidate, Role, ActivityTimeline, ResumeScreeningResult, Communication, get_db, User
 from app.auth import get_current_user, require_roles
 from app.sla import start_sla_clock, complete_open_clock_for
 from app.ai_contract import wrap_ai_output
@@ -174,3 +174,18 @@ def get_candidate(candidate_id: int, db: Session = Depends(get_db), user: User =
             for r in candidate.screening_results
         ]
     return base
+
+
+@router.get("/{candidate_id}/communications")
+def get_communication_history(candidate_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """
+    Priority 5 — the document's own words: 'HR should be able to view the
+    communication history.' Every send_and_log() call across the four
+    trigger points (application received, shortlisted, assignment,
+    interview, rejection) writes here; this is simply the read side.
+    """
+    records = db.query(Communication).filter(Communication.candidate_id == candidate_id).order_by(Communication.sent_at.desc()).all()
+    return [{
+        "id": c.id, "comm_type": c.comm_type, "channel": c.channel,
+        "subject": c.subject, "status": c.status, "sent_at": c.sent_at,
+    } for c in records]

@@ -88,3 +88,78 @@ def send_sla_escalation_email(to_email: str, entity_type: str, stage_name: str, 
     <p>— Solinas Hiring System</p>
     """
     return _send(to_email, subject, html)
+
+
+# ---------------------------------------------------------------------------
+# Priority 5 — candidate-facing communication (Section 12). Every function
+# below returns (subject, html) rather than sending directly — the caller
+# is responsible for both sending AND logging a Communication record,
+# since these live in the router layer (which has db access), not here
+# (which deliberately doesn't, matching every other function in this file).
+# ---------------------------------------------------------------------------
+
+def build_application_received_email(candidate_name: str, role_title: str) -> tuple[str, str]:
+    subject = f"Application received — {role_title}"
+    html = f"""
+    <p>Hi {candidate_name},</p>
+    <p>Thank you for applying for the <strong>{role_title}</strong> position at Solinas. We've received your application
+    and our team will review it shortly.</p>
+    <p>If your background is a match, we'll be in touch with next steps.</p>
+    <p>— Solinas Hiring Team</p>
+    """
+    return subject, html
+
+
+def build_shortlisted_email(candidate_name: str, role_title: str) -> tuple[str, str]:
+    subject = f"You've been shortlisted — {role_title}"
+    html = f"""
+    <p>Hi {candidate_name},</p>
+    <p>Good news — your application for <strong>{role_title}</strong> has been shortlisted. Our team will reach out
+    with next steps shortly.</p>
+    <p>— Solinas Hiring Team</p>
+    """
+    return subject, html
+
+
+def build_assignment_email(candidate_name: str, role_title: str, assignment_name: str, deadline: str = None) -> tuple[str, str]:
+    subject = f"Assignment for {role_title}"
+    deadline_line = f"<p><strong>Please complete it by:</strong> {deadline}</p>" if deadline else ""
+    html = f"""
+    <p>Hi {candidate_name},</p>
+    <p>As the next step for <strong>{role_title}</strong>, please complete the following assignment: <strong>{assignment_name}</strong>.</p>
+    {deadline_line}
+    <p>Our team will follow up once you've submitted it.</p>
+    <p>— Solinas Hiring Team</p>
+    """
+    return subject, html
+
+
+def build_interview_scheduled_email(candidate_name: str, role_title: str, scheduled_at: str) -> tuple[str, str]:
+    subject = f"Interview scheduled — {role_title}"
+    html = f"""
+    <p>Hi {candidate_name},</p>
+    <p>Your interview for <strong>{role_title}</strong> has been scheduled for <strong>{scheduled_at}</strong>.</p>
+    <p>We'll share further details (format, meeting link if applicable) separately. Please reach out if this time
+    doesn't work for you.</p>
+    <p>— Solinas Hiring Team</p>
+    """
+    return subject, html
+
+
+def build_rejection_email(candidate_name: str, role_title: str) -> tuple[str, str]:
+    subject = f"Update on your application — {role_title}"
+    html = f"""
+    <p>Hi {candidate_name},</p>
+    <p>Thank you for your interest in the <strong>{role_title}</strong> position and for taking the time to apply.
+    After careful consideration, we've decided to move forward with other candidates for this role.</p>
+    <p>We appreciate your interest in Solinas and encourage you to apply for future openings that match your background.</p>
+    <p>— Solinas Hiring Team</p>
+    """
+    return subject, html
+
+
+def send_candidate_email(to_email: str, subject: str, html: str) -> bool:
+    """Thin wrapper so every candidate-facing send goes through the same
+    _send() path as everything else in this file — callers use this after
+    building their subject/html with one of the build_* functions above."""
+    return _send(to_email, subject, html)

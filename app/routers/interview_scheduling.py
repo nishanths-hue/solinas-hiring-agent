@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.models import ScheduledInterview, Candidate, User, get_db
 from app.auth import get_current_user, require_roles
 from app.sla import start_sla_clock
+from app.candidate_comms import send_and_log
+from agents.email_agent import build_interview_scheduled_email
 
 router = APIRouter(tags=["interview-scheduling"])
 
@@ -60,6 +62,13 @@ def schedule_interview(
     # actual scheduled_at — this app has no scheduler to trigger a clock
     # start automatically at a future timestamp.
     start_sla_clock(db, "scheduled_interview", scheduled.id, "Feedback submission")
+
+    role = candidate.role
+    scheduled_display = payload.scheduled_at.strftime("%B %d, %Y at %I:%M %p")
+    subject, html = build_interview_scheduled_email(
+        candidate.full_name, role.role_title if role else "the role", scheduled_display,
+    )
+    send_and_log(db, candidate_id, candidate.email, "Interview", subject, html)
 
     return {
         "id": scheduled.id, "candidate_id": candidate_id,

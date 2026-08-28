@@ -211,6 +211,27 @@ class Interview(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Communication(Base):
+    """
+    Priority 5 — Section 12's candidate-facing communication log. Genuinely
+    distinct from ActivityTimeline (which records general events like
+    stage changes) — this specifically tracks what was SENT to a
+    candidate, its delivery status, and the actual message content, so
+    "HR should be able to view the communication history" (the doc's own
+    words) means something real and queryable, not just inferred from
+    scattered activity log lines.
+    """
+    __tablename__ = "communications"
+    id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"))
+    comm_type = Column(String, nullable=False)  # Application Received | Shortlisted | Assignment | Interview | Rejection
+    channel = Column(String, default="Email")
+    subject = Column(String)
+    message = Column(Text)
+    status = Column(String)  # Sent | Failed
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+
 class ActivityTimeline(Base):
     __tablename__ = "activity_timeline"
     id = Column(Integer, primary_key=True)

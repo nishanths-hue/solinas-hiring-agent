@@ -35,6 +35,8 @@ from typing import Optional
 from app.models import Role, Candidate, ActivityTimeline, get_db
 from app.rate_limit import limiter
 from app.sla import start_sla_clock
+from app.candidate_comms import send_and_log
+from agents.email_agent import build_application_received_email
 from agents.resume_screening_agent import parse_resume, structured_to_text
 from app.routers.candidates import ALLOWED_RESUME_EXTENSIONS, MAX_RESUME_FILE_BYTES, _run_screening_core
 from app.routers.duplicates_and_sources import find_potential_duplicates
@@ -146,7 +148,10 @@ def submit_application(
 
     db.commit()
 
-    # id IS returned here, deliberately, unlike a "does this email already
+    subject, html = build_application_received_email(full_name, role.role_title)
+    send_and_log(db, candidate.id, email, "Application Received", subject, html)
+
+    # Deliberately minimal response, unlike a "does this email already
     # exist" style leak — this is an opaque reference to the record THIS
     # exact request just created, needed so the same browser session can
     # immediately attach a resume via the follow-up endpoint. It reveals
