@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Careers at Solinas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F9F9; --surface: #FFFFFF; --border: #DCE3E1;
+    --text: #1E1E1E; --text-dim: #5B6663; --amber: #37BAA1; --amber-text: #237868;
+    --red: #B64B37; --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.55; }
+  header { padding: 24px 40px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  header img { height: 26px; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  .sub { color: var(--text-dim); margin-bottom: 32px; }
+  .role-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px; cursor: pointer; }
+  .role-card:hover { border-color: var(--amber); }
+  .role-card h3 { margin: 0 0 4px; font-size: 17px; }
+  .role-meta { font-size: 13px; color: var(--text-dim); }
+  .tag { display: inline-block; font-size: 11px; background: #E3F5F1; color: var(--amber-text); padding: 2px 9px; border-radius: 999px; margin-right: 6px; }
+  #apply-modal { display: none; position: fixed; inset: 0; background: rgba(30,30,30,0.4); align-items: center; justify-content: center; padding: 20px; }
+  #apply-modal.open { display: flex; }
+  .modal-box { background: var(--surface); border-radius: 12px; padding: 28px; max-width: 480px; width: 100%; max-height: 85vh; overflow-y: auto; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text-dim); margin: 14px 0 6px; }
+  input, textarea { width: 100%; font-family: inherit; font-size: 14px; background: var(--bg); border: 1px solid var(--border); padding: 10px 13px; border-radius: var(--radius); }
+  button { font-family: inherit; font-size: 14px; font-weight: 600; border: none; background: var(--amber); color: #1A1508; padding: 11px 18px; border-radius: var(--radius); cursor: pointer; margin-top: 18px; }
+  button.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); margin-left: 8px; }
+  .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .msg.ok { color: #2E8B6F; } .msg.err { color: var(--red); }
+  .jd-text { white-space: pre-wrap; font-size: 13px; color: var(--text-dim); max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header><img src="logo.png" alt="Solinas"></header>
+<main>
+  <h1>Open roles</h1>
+  <div class="sub">Browse current openings and apply directly \u2014 no account needed.</div>
+  <div id="roles-list">Loading\u2026</div>
+</main>
+
+<div id="apply-modal">
+  <div class="modal-box">
+    <h3 id="apply-role-title">Apply</h3>
+    <div id="apply-jd" class="jd-text"></div>
+    <label>Full name</label><input id="ap-name" required>
+    <label>Email</label><input id="ap-email" type="email" required>
+    <label>Phone</label><input id="ap-phone">
+    <label>Resume (PDF, DOC, or DOCX \u2014 optional, but recommended)</label>
+    <input id="ap-resume" type="file" accept=".pdf,.doc,.docx">
+    <div>
+      <button onclick="submitApplication()">Submit application</button>
+      <button class="secondary" onclick="closeModal()">Cancel</button>
+    </div>
+    <div id="ap-msg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let CURRENT_ROLE_ID = null;
+
+async function loadRoles() {
+  const el = document.getElementById('roles-list');
+  try {
+    const resp = await fetch(API + '/public/open-roles');
+    const roles = await resp.json();
+    if (roles.length === 0) {
+      el.innerHTML = '<div style="color:var(--text-dim)">No open roles right now \u2014 check back soon.</div>';
+      return;
+    }
+    el.innerHTML = roles.map(r => `
+      <div class="role-card" onclick="openApply(${r.id}, '${r.role_title.replace(/'/g, "\\'")}', \`${(r.job_description || '').replace(/`/g, '\\`').slice(0, 2000)}\`)">
+        <h3>${r.role_title}</h3>
+        <div class="role-meta">${r.department} ${r.location ? '\u00b7 ' + r.location : ''} ${r.work_mode ? '\u00b7 ' + r.work_mode : ''} ${r.experience_range ? '\u00b7 ' + r.experience_range : ''}</div>
+        ${(r.mandatory_skills || []).map(s => `<span class="tag">${s}</span>`).join('')}
+      </div>
+    `).join('');
+  } catch (e) { el.innerHTML = `<div style="color:var(--red)">Could not load open roles right now.</div>`; }
+}
+
+function openApply(roleId, title, jd) {
+  CURRENT_ROLE_ID = roleId;
+  document.getElementById('apply-role-title').textContent = 'Apply \u2014 ' + title;
+  document.getElementById('apply-jd').textContent = jd || '';
+  document.getElementById('ap-msg').textContent = '';
+  document.getElementById('apply-modal').classList.add('open');
+}
+function closeModal() { document.getElementById('apply-modal').classList.remove('open'); }
+
+async function submitApplication() {
+  const msg = document.getElementById('ap-msg');
+  const name = document.getElementById('ap-name').value.trim();
+  const email = document.getElementById('ap-email').value.trim();
+  const phone = document.getElementById('ap-phone').value.trim();
+  if (!name || !email) { msg.className = 'msg err'; msg.textContent = 'Name and email are required.'; return; }
+
+  try {
+    msg.className = 'msg'; msg.textContent = 'Submitting\u2026';
+    const formData = new URLSearchParams({ role_id: CURRENT_ROLE_ID, full_name: name, email, phone });
+    const resp = await fetch(API + '/public/apply', { method: 'POST', body: formData });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.detail || 'Something went wrong.');
+
+    const fileInput = document.getElementById('ap-resume');
+    if (fileInput.files.length > 0 && result.id) {
+      msg.textContent = 'Application received \u2014 uploading resume\u2026';
+      const resumeForm = new FormData();
+      resumeForm.append('file', fileInput.files[0]);
+      try {
+        await fetch(API + `/public/apply/${result.id}/resume`, { method: 'POST', body: resumeForm });
+      } catch {
+        // The core application is already recorded regardless \u2014 a
+        // failed resume attach here is not fatal to the applicant, a
+        // recruiter can still follow up manually.
+      }
+    }
+
+    msg.className = 'msg ok';
+    msg.textContent = result.message || 'Application received.';
+    document.getElementById('ap-name').value = '';
+    document.getElementById('ap-email').value = '';
+    document.getElementById('ap-phone').value = '';
+    setTimeout(closeModal, 2500);
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+}
+
+loadRoles();
+</script>
+</body>
+</html>
