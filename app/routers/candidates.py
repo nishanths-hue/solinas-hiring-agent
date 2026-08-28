@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.models import Candidate, ActivityTimeline, ResumeScreeningResult, get_db, User
+from app.models import Candidate, Role, ActivityTimeline, ResumeScreeningResult, get_db, User
 from app.auth import get_current_user, require_roles
 from app.sla import start_sla_clock, complete_open_clock_for
 from app.ai_contract import wrap_ai_output
@@ -96,6 +96,37 @@ async def upload_resume_file(
     }
 
 
+def _run_screening_core(db, candidate: Candidate, role: Role, triggered_by: str) -> dict:
+    """
+    The actual screening work — extracted so both the human-triggered
+    endpoint below AND the careers-page auto-trigger (Priority 4) call
+    the exact same logic. This is the reuse the document explicitly asks
+    for ("Do not duplicate existing functionality"), not two versions
+    that could quietly drift apart.
+    """
+    result = screen_candidate(candidate.resume_text, {
+        "role_title": role.role_title,
+        "mandatory_skills": role.mandatory_skills or [],
+        "nice_to_have_skills": role.nice_to_have_skills or [],
+        "experience_range": role.experience_range,
+    })
+
+    record = ResumeScreeningResult(candidate_id=candidate.id, role_id=role.id, triggered_by=triggered_by, **result)
+    db.add(record)
+    candidate.stage = "Resume Review"
+    db.add(ActivityTimeline(
+        candidate_id=candidate.id, activity="AI resume screening completed",
+        stage_from="Applied", stage_to="Resume Review", actor="resume_screening_agent",
+    ))
+    complete_open_clock_for(db, "candidate", candidate.id, "Resume review")
+
+    if result.get("fit_score") is not None and result["fit_score"] >= 70:
+        start_sla_clock(db, "candidate", candidate.id, "High-fit review")
+
+    db.commit()
+    return result
+
+
 @router.post("/{candidate_id}/screen")
 def run_screening(
     candidate_id: int,
@@ -112,30 +143,7 @@ def run_screening(
     if not role:
         raise HTTPException(400, "Candidate has no associated role to screen against")
 
-    result = screen_candidate(candidate.resume_text, {
-        "role_title": role.role_title,
-        "mandatory_skills": role.mandatory_skills or [],
-        "nice_to_have_skills": role.nice_to_have_skills or [],
-        "experience_range": role.experience_range,
-    })
-
-    record = ResumeScreeningResult(candidate_id=candidate_id, role_id=role.id, triggered_by=user.email, **result)
-    db.add(record)
-    candidate.stage = "Resume Review"
-    db.add(ActivityTimeline(
-        candidate_id=candidate_id, activity="AI resume screening completed",
-        stage_from="Applied", stage_to="Resume Review", actor="resume_screening_agent",
-    ))
-    complete_open_clock_for(db, "candidate", candidate_id, "Resume review")
-
-    # High-fit review — 70 is a judgment call, not a value from the
-    # document (it doesn't specify a threshold for "high fit"). Chosen as
-    # a reasonable floor for "worth a recruiter's focused look," not
-    # derived from any stated requirement.
-    if result.get("fit_score") is not None and result["fit_score"] >= 70:
-        start_sla_clock(db, "candidate", candidate_id, "High-fit review")
-
-    db.commit()
+    result = _run_screening_core(db, candidate, role, user.email)
     return wrap_ai_output(result, user.email)
 
 

@@ -36,7 +36,8 @@ from app.models import Role, Candidate, ActivityTimeline, get_db
 from app.rate_limit import limiter
 from app.sla import start_sla_clock
 from agents.resume_screening_agent import parse_resume, structured_to_text
-from app.routers.candidates import ALLOWED_RESUME_EXTENSIONS, MAX_RESUME_FILE_BYTES
+from app.routers.candidates import ALLOWED_RESUME_EXTENSIONS, MAX_RESUME_FILE_BYTES, _run_screening_core
+from app.routers.duplicates_and_sources import find_potential_duplicates
 
 router = APIRouter(prefix="/public", tags=["public-application"])
 
@@ -126,6 +127,23 @@ def submit_application(
         stage_to="Applied", actor="public_application",
     ))
     start_sla_clock(db, "candidate", candidate.id, "Resume review")
+
+    # Priority 4 — Section 9's duplicate check, run automatically on every
+    # public application, same detection logic the internal creation flow
+    # already uses. This doesn't block the application (a genuine
+    # duplicate is still a real person who should be able to apply again
+    # to a different or the same role) — it logs a visible flag so a
+    # recruiter sees it in the Activity Feed without having to manually
+    # open every new applicant's record to check.
+    duplicates = find_potential_duplicates(db, candidate)
+    if duplicates:
+        matched_names = ", ".join(d.full_name for d in duplicates[:3])
+        db.add(ActivityTimeline(
+            candidate_id=candidate.id,
+            activity=f"Possible duplicate of existing candidate(s): {matched_names}",
+            actor="public_application",
+        ))
+
     db.commit()
 
     # id IS returned here, deliberately, unlike a "does this email already
@@ -170,6 +188,30 @@ async def upload_application_resume(request: Request, candidate_id: int, file: U
             actor="public_application",
         ))
         db.commit()
+
+        # Priority 4 — this is the actual automation the document asks
+        # for: a public applicant's resume gets screened the moment it's
+        # successfully parsed, without a recruiter needing to click
+        # anything. Reuses the exact same screening logic the internal
+        # "Run AI resume screening" button calls — same function, not a
+        # second copy that could drift.
+        role = candidate.role
+        if role:
+            try:
+                _run_screening_core(db, candidate, role, triggered_by="public_application_auto_screen")
+            except Exception as e:
+                # Never silently swallowed — logged visibly to the
+                # candidate's own timeline (and therefore the Activity
+                # Feed dashboard) so a recruiter can see auto-screening
+                # didn't happen and run it manually, rather than this
+                # candidate quietly sitting unscreened with no trace of why.
+                db.add(ActivityTimeline(
+                    candidate_id=candidate.id,
+                    activity=f"Automatic screening failed after resume upload: {str(e)[:200]}",
+                    actor="public_application_auto_screen",
+                ))
+                db.commit()
+
         return {"status": "received"}
 
     # A parsing failure here should NOT surface RChilli internals to a
