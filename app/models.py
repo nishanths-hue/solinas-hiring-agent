@@ -42,6 +42,15 @@ class Role(Base):
     id = Column(Integer, primary_key=True)
     role_title = Column(String, nullable=False)
     department = Column(String, nullable=False)
+    location = Column(String)
+    work_mode = Column(String)  # Remote | Hybrid | On-site
+    employment_type = Column(String)  # Full-time | Part-time | Contract, etc.
+    budget = Column(String)  # HR's stated budget ceiling — distinct from compensation_range,
+                              # which is the market-facing offered range set later in the process
+    request_display_id = Column(String, unique=True)  # e.g. "HR-REQ-2026-001" — cosmetic/display
+                                                          # only, set once at creation; the real
+                                                          # primary key (id) is what every foreign
+                                                          # key and internal join actually uses
     hiring_manager = Column(String, nullable=False)
     hiring_priority = Column(String, nullable=False)  # Critical | High | Medium
     target_joining_date = Column(DateTime)

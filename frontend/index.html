@@ -778,7 +778,7 @@ async function loadRoles() {
     }
     tbody.innerHTML = roles.map(r => `
       <tr class="clickable" onclick="openRoleDrawer(${r.id})">
-        <td>${r.role_title}</td>
+        <td>${r.role_title}${r.request_display_id ? `<br><span class="mono" style="font-size:11px;color:var(--text-dim)">${r.request_display_id}</span>` : ''}</td>
         <td>${r.department}</td>
         <td><span class="priority-tag priority-${r.hiring_priority}">${r.hiring_priority}</span></td>
         <td>${r.stage}</td>
@@ -795,13 +795,22 @@ function openNewRoleForm() {
       <div><label>Hiring manager</label><input id="nr-hm"></div>
     </div>
     <div class="field-row">
-      <label></label>
+      <div><label>Location</label><input id="nr-location" placeholder="e.g. Chennai"></div>
+      <div><label>Work mode</label>
+        <select id="nr-workmode"><option value="">\u2014</option><option>Remote</option><option>Hybrid</option><option>On-site</option></select>
+      </div>
     </div>
     <div class="field-row">
+      <div><label>Employment type</label>
+        <select id="nr-emptype"><option value="">\u2014</option><option>Full-time</option><option>Part-time</option><option>Contract</option></select>
+      </div>
       <div><label>Priority</label>
         <select id="nr-priority"><option>Critical</option><option selected>High</option><option>Medium</option></select>
       </div>
+    </div>
+    <div class="field-row">
       <div><label>Experience range</label><input id="nr-exp" placeholder="e.g. 2-4 years"></div>
+      <div><label>Budget (restricted \u2014 recruitment/leadership only)</label><input id="nr-budget" placeholder="e.g. 20-25 LPA"></div>
     </div>
     <label>Business need</label><textarea id="nr-need" rows="2"></textarea>
     <label>KPI expectations</label><textarea id="nr-kpi" rows="2"></textarea>
@@ -825,6 +834,10 @@ async function submitNewRole() {
       business_need: document.getElementById('nr-need').value,
       kpi_expectations: document.getElementById('nr-kpi').value,
       replacement_or_new: 'New Role',
+      location: document.getElementById('nr-location').value || null,
+      work_mode: document.getElementById('nr-workmode').value || null,
+      employment_type: document.getElementById('nr-emptype').value || null,
+      budget: document.getElementById('nr-budget').value || null,
     };
     await api('/roles', { method: 'POST', body: JSON.stringify(payload) });
     msg.className = 'msg ok'; msg.textContent = 'Role created.';
@@ -846,6 +859,7 @@ async function openRoleDrawer(roleId) {
 
     content.innerHTML = `
       <h3>${pipeline.role_title}</h3>
+      ${pipeline.request_display_id ? `<div class="mono" style="font-size:12px;color:var(--text-dim);margin:-14px 0 14px">${pipeline.request_display_id}</div>` : ''}
       ${canGenJD ? `<button onclick="generateJD(${roleId})">Generate JD</button>` : ''}
       <div id="jd-result" class="qa-block hidden"></div>
       <h3 style="margin-top:20px">Pipeline (${pipeline.candidate_count})</h3>

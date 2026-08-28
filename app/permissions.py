@@ -16,6 +16,10 @@ RESTRICTED_ROLE_FIELDS = {
     "suggested_compensation_range",
     "offer_strategy_notes",
     "internal_risk_notes",
+    "budget",  # HR's stated budget ceiling — same sensitivity tier as
+                # compensation_range, added alongside the Hiring Request
+                # fields; a hiring_manager shouldn't see the internal
+                # budget ceiling any more than the offered comp range.
 }
 
 RESTRICTED_CANDIDATE_NOTE_FIELDS = {

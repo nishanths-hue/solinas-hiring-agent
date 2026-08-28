@@ -1,4 +1,5 @@
 from typing import Optional, List
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -25,6 +26,10 @@ class RoleCreate(BaseModel):
     kpi_expectations: Optional[str] = None
     replacement_or_new: Optional[str] = None
     suggested_compensation_range: Optional[str] = None
+    location: Optional[str] = None
+    work_mode: Optional[str] = None
+    employment_type: Optional[str] = None
+    budget: Optional[str] = None
 
 
 def _role_to_dict(role: Role) -> dict:
@@ -41,6 +46,11 @@ def create_role(
     db.add(role)
     db.commit()
     db.refresh(role)
+    # Display ID needs the real auto-increment id first, so it's set in a
+    # second pass right after — this is cosmetic only (shown to humans),
+    # never used as a foreign key or lookup key anywhere in the system.
+    role.request_display_id = f"HR-REQ-{datetime.utcnow().year}-{role.id:03d}"
+    db.commit()
     start_sla_clock(db, "role", role.id, "Hiring request review")
     return filter_role_dict(_role_to_dict(role), user.role)
 

@@ -27,6 +27,10 @@ FIELD_OWNERS = {
     "number_of_openings": {"hiring_manager", "recruitment", "leadership"},
     "jd": {"recruitment", "leadership"},                             # Recruitment owns "JD quality"
     "hiring_notes": {"hiring_manager", "recruitment", "leadership"},
+    "location": {"hiring_manager", "recruitment", "leadership"},
+    "work_mode": {"hiring_manager", "recruitment", "leadership"},
+    "employment_type": {"hiring_manager", "recruitment", "leadership"},
+    "budget": {"recruitment", "leadership"},  # same restricted tier as compensation_range
 }
 
 
@@ -42,6 +46,10 @@ class RequirementUpdate(BaseModel):
     number_of_openings: Optional[int] = None
     jd: Optional[str] = None
     hiring_notes: Optional[str] = None
+    location: Optional[str] = None
+    work_mode: Optional[str] = None
+    employment_type: Optional[str] = None
+    budget: Optional[str] = None
 
 
 @router.patch("/{role_id}/requirements")

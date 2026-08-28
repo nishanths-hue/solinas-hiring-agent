@@ -129,6 +129,7 @@ def role_pipeline(role_id: int, db: Session = Depends(get_db), user: User = Depe
     return {
         "role_id": role_id,
         "role_title": role.role_title,
+        "request_display_id": role.request_display_id,
         "candidate_count": len(result),
         "candidates": result,
     }
