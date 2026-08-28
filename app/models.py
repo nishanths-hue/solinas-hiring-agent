@@ -339,6 +339,38 @@ class CompensationBenchmark(Base):
     last_updated_at = Column(DateTime, default=datetime.utcnow)
 
 
+class CompensationResearch(Base):
+    """
+    Priority 2 of the Recruitment Agent workflow doc — a single AI-run
+    compensation research event for one specific role, distinct from
+    CompensationBenchmark (a general, manually-maintained category
+    repository, not tied to any one role or research event).
+
+    hr_decision/final_range/decided_by are null until a human acts on
+    this — the research alone is never authoritative. Once decided,
+    final_range also gets written to role.compensation_range (the field
+    the rest of the system already restricts and uses everywhere else,
+    like offer release), rather than this table becoming a second,
+    parallel "true" compensation field.
+    """
+    __tablename__ = "compensation_research"
+    id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id"))
+    low_range = Column(String)
+    median_range = Column(String)
+    high_range = Column(String)
+    suggested_range = Column(String)
+    confidence = Column(String)  # Low | Medium | High
+    reasoning = Column(Text)
+    sources = Column(JSON, default=list)  # [{"url": ..., "title": ...}] — real search results only
+    researched_at = Column(DateTime, default=datetime.utcnow)
+    model_used = Column(String)
+    hr_decision = Column(String)  # Accepted | Modified | Custom — null until HR acts
+    final_range = Column(String)
+    decided_by = Column(String)
+    decided_at = Column(DateTime)
+
+
 class HiringTemplate(Base):
     """Section 13 — fixed set of 4 template types per the doc's own table;
     'only role-specific variables should change automatically' means this

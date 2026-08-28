@@ -5,7 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.rate_limit import limiter
-from app.routers import auth, roles, candidates, dashboard, interviews, assignments, reference_checks, assignment_repository, candidate_lifecycle, role_requirements, compensation_benchmarks, templates_and_postings, recruiter_tools, duplicates_and_sources, candidate_views, interview_scheduling, internal
+from app.routers import auth, roles, candidates, dashboard, interviews, assignments, reference_checks, assignment_repository, candidate_lifecycle, role_requirements, compensation_benchmarks, templates_and_postings, recruiter_tools, duplicates_and_sources, candidate_views, interview_scheduling, internal, compensation_research
 
 # Rate limiting — in-memory, per-process. That's genuinely sufficient here:
 # this runs as a single Render free-tier instance, not multiple replicas
@@ -54,6 +54,7 @@ app.include_router(duplicates_and_sources.router)
 app.include_router(candidate_views.router)
 app.include_router(interview_scheduling.router)
 app.include_router(internal.router)
+app.include_router(compensation_research.router)
 
 # Frontend served at /app — kept off the root path so /docs, /health, and every
 # existing API route are completely unaffected. html=True serves index.html

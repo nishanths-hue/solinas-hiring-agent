@@ -856,6 +856,12 @@ async function openRoleDrawer(roleId) {
     const canGenJD = ['leadership', 'recruitment'].includes(ROLE);
     const canEditReqs = ['leadership', 'recruitment', 'hiring_manager'].includes(ROLE);
     const canManagePostings = ['leadership', 'recruitment'].includes(ROLE);
+    const canSeeCompResearch = ['leadership', 'recruitment'].includes(ROLE);  // NOT hiring_manager —
+                                                                                 // matches the backend's
+                                                                                 // actual restriction on
+                                                                                 // /compensation-research,
+                                                                                 // which is narrower than
+                                                                                 // canEditReqs
 
     content.innerHTML = `
       <h3>${pipeline.role_title}</h3>
@@ -891,6 +897,11 @@ async function openRoleDrawer(roleId) {
         <div class="form-actions"><button class="primary" onclick="submitRequirementUpdate(${roleId})">Save changes</button></div>
         <div id="req-msg" class="msg"></div>
       ` : ''}
+      ${canSeeCompResearch ? `
+        <h3 style="margin-top:20px">Compensation research</h3>
+        <button onclick="runCompensationResearch(${roleId})">Research market compensation</button>
+        <div id="comp-research-list" style="margin-top:10px"></div>
+      ` : ''}
       ${canManagePostings ? `
         <h3 style="margin-top:20px">Postings</h3>
         <div id="postings-list">Loading…</div>
@@ -901,6 +912,7 @@ async function openRoleDrawer(roleId) {
       ` : ''}
     `;
     if (canManagePostings) loadPostings(roleId);
+    if (canSeeCompResearch) loadCompensationResearch(roleId);
   } catch (e) { content.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
 }
 
@@ -948,6 +960,58 @@ async function submitRequirementUpdate(roleId) {
     // edit: ['compensation_range']" — shown exactly, not paraphrased.
     msg.className = 'msg err'; msg.textContent = e.message;
   }
+}
+
+async function loadCompensationResearch(roleId) {
+  const el = document.getElementById('comp-research-list');
+  try {
+    const records = await api(`/roles/${roleId}/compensation-research`);
+    el.innerHTML = records.length ? records.map(r => `
+      <div class="qa-block">
+        <div>
+          <strong>Suggested: ${r.suggested_range || '—'}</strong> ${aiBadge({ ai_generated: true, ai_model: r.model_used || 'claude-sonnet-4-6', ai_generated_at: r.researched_at })}
+          <span class="priority-tag priority-${r.confidence === 'High' ? 'Medium' : r.confidence === 'Low' ? 'Critical' : 'High'}" style="margin-left:6px">${r.confidence} confidence</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);margin:6px 0">
+          Range: ${r.low_range || '?'} \u2013 ${r.high_range || '?'} (median ${r.median_range || '?'})<br>
+          ${r.reasoning || ''}
+        </div>
+        ${r.sources && r.sources.length ? `
+          <div style="font-size:11px;color:var(--text-dim)">Sources: ${r.sources.map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.title || s.url}</a>`).join(', ')}</div>
+        ` : '<div style="font-size:11px;color:var(--red)">No sources retrieved \u2014 treat this result with caution.</div>'}
+        ${r.hr_decision ? `
+          <div style="font-size:12px;color:var(--green);margin-top:6px">${r.hr_decision}: ${r.final_range} \u2014 by ${r.decided_by}</div>
+        ` : `
+          <div style="margin-top:8px">
+            <input id="decide-range-${r.id}" placeholder="Final range to use" value="${r.suggested_range || ''}" style="width:auto;display:inline-block">
+            <select id="decide-type-${r.id}" style="width:auto;display:inline-block">
+              <option>Accepted</option><option>Modified</option><option>Custom</option>
+            </select>
+            <button onclick="decideCompensation(${roleId}, ${r.id})">Apply</button>
+          </div>
+        `}
+      </div>
+    `).join('') : '<span style="color:var(--text-dim);font-size:13px">No research run yet.</span>';
+  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function runCompensationResearch(roleId) {
+  try {
+    await api(`/roles/${roleId}/compensation-research`, { method: 'POST' });
+    loadCompensationResearch(roleId);
+  } catch (e) { alert(e.message); }
+}
+
+async function decideCompensation(roleId, researchId) {
+  const range = document.getElementById(`decide-range-${researchId}`).value.trim();
+  const decision = document.getElementById(`decide-type-${researchId}`).value;
+  if (!range) { alert('Enter a final range.'); return; }
+  try {
+    await api(`/roles/${roleId}/compensation-research/${researchId}/decide`, {
+      method: 'POST', body: JSON.stringify({ decision, final_range: range }),
+    });
+    loadCompensationResearch(roleId);
+  } catch (e) { alert(e.message); }
 }
 
 async function loadPostings(roleId) {
